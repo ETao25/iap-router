@@ -1,0 +1,50 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Kotlin/KMP
+*.class
+*.jar
+*.war
+*.ear
+kotlin-js-store/
+
+# iOS
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+DerivedData/
+Pods/
+Carthage/
+
+# Android
+*.apk
+*.aab
+*.dex
+*.ap_
+*.hprof
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Environment
+.env
+.env.local
