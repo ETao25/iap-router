@@ -1,21 +1,26 @@
 package com.iap.router.util
 
+import io.ktor.http.decodeURLQueryComponent
+import io.ktor.http.encodeURLParameter
+
 /**
  * URL 编解码工具
- * 使用 expect/actual 模式实现平台特定的编解码
+ * 使用 Ktor HTTP 提供的跨平台实现
  */
-expect object UrlCodec {
+object UrlCodec {
     /**
      * URL 编码
-     * @param value 待编码的字符串
-     * @return 编码后的字符串
+     * 将特殊字符转换为 %XX 格式
      */
-    fun encode(value: String): String
+    fun encode(value: String): String {
+        return value.encodeURLParameter()
+    }
 
     /**
-     * URL 解码
-     * @param value 待解码的字符串
-     * @return 解码后的字符串
+     * URL 解码（用于 query 参数）
+     * 将 %XX 格式还原为原始字符，同时将 + 解码为空格
      */
-    fun decode(value: String): String
+    fun decode(value: String): String {
+        return value.decodeURLQueryComponent(plusIsSpace = true)
+    }
 }
