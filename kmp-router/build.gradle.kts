@@ -1,20 +1,39 @@
-plugins {
-    kotlin("multiplatform") version "2.0.21"
+buildscript {
+    repositories {
+        maven { url = uri("https://maven.aliyun.com/repository/google") }
+        maven { url = uri("https://maven.aliyun.com/repository/central") }
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.2.2")
+    }
 }
 
-group = "com.worldfirst"
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+}
+
+apply(plugin = "com.android.library")
+
+group = "com.iap"
 version = "1.0.0-SNAPSHOT"
 
 kotlin {
     // JVM target for testing
     jvm {
-        compilations.all {
-            kotlinOptions {
-                jvmTarget = "17"
-            }
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
+        }
+    }
+
+    // Android target
+    androidTarget {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
         }
     }
 
@@ -33,24 +52,32 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+                implementation(libs.kotlinx.coroutines.core)
             }
         }
 
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
 
-        val jvmMain by getting {
-            dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
-            }
-        }
+        val jvmMain by getting
 
         val jvmTest by getting
+
+        val androidMain by getting {
+            dependencies {
+                implementation(libs.kotlinx.coroutines.android)
+            }
+        }
+
+        val androidUnitTest by getting {
+            dependencies {
+                implementation(kotlin("test-junit"))
+            }
+        }
 
         val iosX64Main by getting
         val iosArm64Main by getting
@@ -71,5 +98,19 @@ kotlin {
             iosArm64Test.dependsOn(this)
             iosSimulatorArm64Test.dependsOn(this)
         }
+    }
+}
+
+configure<com.android.build.gradle.LibraryExtension> {
+    namespace = "com.iap.router"
+    compileSdk = 34
+
+    defaultConfig {
+        minSdk = 21
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
