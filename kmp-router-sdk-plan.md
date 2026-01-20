@@ -1,5 +1,91 @@
 # KMP Router SDK 设计与实施规划
 
+---
+
+## 📊 实施进度追踪
+
+> 最后更新：2025-01-20
+
+| Phase | 名称 | 状态 | 进度 | 备注 |
+|-------|------|------|------|------|
+| **Phase 1** | 基础架构搭建 | ✅ 已完成 | 100% | 127 个测试通过 |
+| **Phase 2** | 拦截器机制 | ⏳ 待开始 | 0% | |
+| **Phase 3** | 参数管理与类型安全 | ⏳ 待开始 | 0% | |
+| **Phase 4** | 降级与回调机制 | ⏳ 待开始 | 0% | |
+| **Phase 5** | iOS 平台集成 | ⏳ 待开始 | 0% | |
+| **Phase 6** | Android 平台集成 | ⏳ 待开始 | 0% | |
+| **Phase 7** | 迁移工具与文档 | ⏳ 待开始 | 0% | |
+| **Phase 8** | 优化与稳定 | ⏳ 待开始 | 0% | |
+
+### Phase 1 完成情况
+
+- [x] KMP 项目结构搭建（Kotlin 2.2.21 + Gradle 8.x）
+- [x] 协议解析器（Protocol Parser）
+- [x] 路由匹配器（Route Matcher）- 支持精确匹配、path 参数、通配符
+- [x] 路由表管理（Route Registry）- 支持页面路由和 Action 路由注册
+- [x] 基础 Navigator/PageFactory/ActionExecutor 接口定义
+- [x] 参数扩展工具类（ParamsExtensions）
+- [x] 对象存储（ObjectStore）
+- [x] 日志接口（Logger）
+- [x] 降级处理接口（FallbackHandler）
+- [x] 异常体系（RouterException）
+- [x] URL 编解码（UrlCodec - 使用 Ktor HTTP）
+- [x] 单元测试覆盖（127 个测试）
+
+### 当前代码结构
+
+```
+kmp-router/
+├── build.gradle.kts
+├── settings.gradle.kts
+├── gradle/
+│   └── libs.versions.toml          # 版本目录
+└── src/
+    ├── commonMain/kotlin/com/iap/router/
+    │   ├── RouteRegistry.kt        # 路由注册接口
+    │   ├── core/
+    │   │   ├── ProtocolParser.kt   # URL 解析
+    │   │   ├── RouteMatcher.kt     # 路由匹配
+    │   │   └── RouteTable.kt       # 路由表
+    │   ├── model/
+    │   │   ├── ParsedRoute.kt      # 解析后的路由
+    │   │   ├── RouteContext.kt     # 路由上下文
+    │   │   ├── RouteResult.kt      # 路由结果
+    │   │   ├── RouteSource.kt      # 路由来源
+    │   │   ├── PageRouteConfig.kt  # 页面路由配置
+    │   │   └── NavigationOptions.kt # 导航选项
+    │   ├── platform/
+    │   │   ├── Navigator.kt        # 导航器接口
+    │   │   ├── PageFactory.kt      # 页面工厂接口
+    │   │   └── ActionExecutor.kt   # Action 执行器接口
+    │   ├── params/
+    │   │   ├── ParamsExtensions.kt # 参数扩展
+    │   │   └── ObjectStore.kt      # 对象存储
+    │   ├── util/
+    │   │   ├── Logger.kt           # 日志接口
+    │   │   └── UrlCodec.kt         # URL 编解码 (Ktor)
+    │   ├── fallback/
+    │   │   └── FallbackHandler.kt  # 降级处理
+    │   └── exception/
+    │       └── RouterException.kt  # 异常定义
+    ├── commonTest/kotlin/com/iap/router/
+    │   ├── core/
+    │   │   ├── ProtocolParserTest.kt
+    │   │   ├── RouteMatcherTest.kt
+    │   │   └── RouteTableTest.kt
+    │   ├── params/
+    │   │   ├── ParamsExtensionsTest.kt
+    │   │   └── ObjectStoreTest.kt
+    │   └── testutil/
+    │       └── TestRouteContext.kt
+    ├── jvmMain/                     # JVM 平台 (待实现)
+    ├── androidMain/
+    │   └── AndroidManifest.xml
+    └── iosMain/                     # iOS 平台 (待实现)
+```
+
+---
+
 ## 一、项目概述
 
 ### 1.1 背景
@@ -106,33 +192,33 @@
 采用 RESTful 风格，支持灵活深度路径：
 
 ```
-worldfirst://{path}[/:pathParam]?queryParam=value
+iap://{path}[/:pathParam]?queryParam=value
 ```
 
 #### 3.1.1 页面路由
 
 ```
 # 基础格式
-worldfirst://account/settings?tab=security
+iap://account/settings?tab=security
 
 # 带 path 参数
-worldfirst://order/detail/:orderId?from=list
-worldfirst://fx/trade/:pairId/chart?period=1d
+iap://order/detail/:orderId?from=list
+iap://fx/trade/:pairId/chart?period=1d
 
 # 多级路径
-worldfirst://payment/card/bindNew?source=checkout
+iap://payment/card/bindNew?source=checkout
 ```
 
 #### 3.1.2 Action 路由
 
 ```
 # Action 统一使用 action 前缀
-worldfirst://action/{actionName}[/:pathParam]?queryParam=value
+iap://action/{actionName}[/:pathParam]?queryParam=value
 
 # 示例
-worldfirst://action/showPopup?type=confirm&message=xxx
-worldfirst://action/share?content=xxx&platform=wechat
-worldfirst://action/copyText?content=xxx
+iap://action/showPopup?type=confirm&message=xxx
+iap://action/share?content=xxx&platform=wechat
+iap://action/copyText?content=xxx
 ```
 
 #### 3.1.3 导航模式参数
@@ -146,14 +232,14 @@ worldfirst://action/copyText?content=xxx
 | `_animated` | 是否动画 | true / false |
 
 ```
-worldfirst://order/detail/:orderId?_navMode=present&_presentStyle=pageSheet
+iap://order/detail/:orderId?_navMode=present&_presentStyle=pageSheet
 ```
 
 ### 3.2 旧协议兼容
 
 **旧协议格式**：
 ```
-worldfirst://app?pageId=xxx&param1=value1
+iap://app?pageId=xxx&param1=value1
 ```
 
 **适配方案**：业务层实现 `LegacyRouteAdapter`，在调用 SDK 之前完成协议转换。
@@ -185,13 +271,11 @@ interface Router {
     /**
      * 执行路由（页面跳转或 Action 执行）
      * @param url 路由 URL
-     * @param params 类型安全参数（可选，用于编译期检查）
-     * @param extras 额外参数字典（用于 ViewModel、平台特有参数等）
+     * @param extras 额外参数（用于传递对象、平台特有参数等）
      * @param callback 路由结果回调
      */
     fun open(
         url: String,
-        params: RouteParams? = null,
         extras: Map<String, Any?> = emptyMap(),
         callback: RouteCallback? = null
     )
@@ -221,14 +305,6 @@ interface Router {
      */
     fun addObserver(observer: RouteObserver)
 }
-
-/**
- * 类型安全参数接口
- * 各路由可定义对应的参数类实现此接口
- */
-interface RouteParams {
-    fun toMap(): Map<String, Any?>
-}
 ```
 
 ### 4.2 路由注册
@@ -257,14 +333,12 @@ interface RouteRegistry {
 }
 
 data class PageRouteConfig(
-    val pageId: String,                          // 页面业务标识符，用于：
-                                                  // 1. 与 VC/Activity 类名或注册标识对应
-                                                  // 2. 埋点、日志中的页面标识
-                                                  // 3. 白名单/黑名单控制
-                                                  // 注：pageId 与 pattern 独立，pattern 是 URL 路径匹配模式
-    val requiredParams: List<String> = emptyList(), // 必需参数
-    val fallback: FallbackConfig? = null,        // 单路由降级配置
-    val metadata: Map<String, Any?> = emptyMap() // 扩展元数据
+    val pageId: String,                       // 页面业务标识符，用于：
+                                              // 1. 与 VC/Activity 类名或注册标识对应
+                                              // 2. 埋点、日志中的页面标识
+                                              // 3. 白名单/黑名单控制
+                                              // 注：pageId 与 pattern 独立，pattern 是 URL 路径匹配模式
+    val fallback: FallbackConfig? = null      // 单路由降级配置
 )
 ```
 
@@ -296,10 +370,9 @@ interface InterceptorChain {
 data class RouteContext(
     val url: String,
     val parsedRoute: ParsedRoute,
-    val params: Map<String, Any?>,         // 合并后的参数（只读）
+    val params: Map<String, Any?>,         // 合并后的参数（URL path/query + extras）
     val source: RouteSource,               // 路由来源
-    val timestamp: Long,
-    internal val objectStore: ObjectStore  // 内部对象存储（用于 extras 中的对象引用）
+    val timestamp: Long
 )
 
 sealed class RouteResult {
@@ -349,103 +422,77 @@ expect interface ActionExecutor {
 
 ### 4.5 参数传递
 
-采用**混合模式**：类型安全参数 + 自由字典，兼顾类型安全和灵活性。
+采用**调用侧简单 + 接收侧类型安全**的设计模式。
+
+#### 4.5.1 调用方式
 
 ```kotlin
-// ==================== 类型安全参数定义 ====================
+// ==================== 调用方式（简单灵活）====================
+
+// 方式1：纯 URL（简单场景）
+router.open("iap://order/detail/123?from=list")
+
+// 方式2：URL + extras（传递对象或覆盖参数）
+router.open(
+    url = "iap://order/detail/123?from=list",
+    extras = mapOf("viewModel" to myViewModel)
+)
+
+// 方式3：平台特有参数
+router.open(
+    url = "iap://order/detail/123",
+    extras = mapOf(
+        "_ios_presentStyle" to "pageSheet",
+        "_android_flags" to "FLAG_ACTIVITY_NEW_TASK"
+    )
+)
+```
+
+#### 4.5.2 参数合并优先级
+
+当同一参数在多处定义时，优先级（高 → 低）：
+1. `extras` 字典（最高优先级）
+2. URL query 参数
+3. URL path 参数
+
+#### 4.5.3 目标页面接收参数（类型安全）
+
+```kotlin
+// ==================== 目标页面定义参数模型 ====================
 
 /**
- * 示例：订单详情页参数
+ * 订单详情页参数（接收侧类型安全）
  */
 data class OrderDetailParams(
     val orderId: String,
-    val from: String? = null,
-    val showHeader: Boolean = true
-) : RouteParams {
-    override fun toMap() = mapOf(
-        "orderId" to orderId,
-        "from" to from,
-        "showHeader" to showHeader
-    )
+    val from: String?,
+    val showHeader: Boolean
+) {
+    companion object {
+        fun from(params: Map<String, Any?>) = OrderDetailParams(
+            orderId = params.requireString("orderId"),
+            from = params.optString("from"),
+            showHeader = params.optBoolean("showHeader", default = true)
+        )
+    }
 }
 
-// ==================== 调用方式 ====================
+// ==================== 目标页面使用 ====================
 
-// 方式1：类型安全参数（推荐，有编译期检查）
-router.open(
-    url = "worldfirst://order/detail/123",
-    params = OrderDetailParams(orderId = "123", from = "list")
-)
-
-// 方式2：纯 URL 参数（简单场景）
-router.open(url = "worldfirst://order/detail/123?from=list")
-
-// 方式3：传递 ViewModel 等对象（通过 extras）
-router.open(
-    url = "worldfirst://order/detail/123",
-    params = OrderDetailParams(orderId = "123"),
-    extras = mapOf("viewModel" to myViewModel)  // 对象引用
-)
-
-// 方式4：平台特有参数
-router.open(
-    url = "worldfirst://order/detail/123",
-    extras = mapOf(
-        "_ios_presentStyle" to "pageSheet",  // iOS 特有
-        "_android_flags" to "FLAG_ACTIVITY_NEW_TASK"  // Android 特有
-    )
-)
-
-// ==================== 目标页面获取参数 ====================
-
-// SDK 会将 params.toMap() + URL 参数 + extras 合并后传递给目标页面
-// 目标页面通过 RouteContext 获取合并后的参数
 class OrderDetailPage {
     fun onCreate(context: RouteContext) {
-        val orderId = context.params.requireString("orderId")
+        // 方式1：使用类型安全的参数模型
+        val params = OrderDetailParams.from(context.params)
+        println(params.orderId)  // 类型安全
+        println(params.from)     // 类型安全
+
+        // 方式2：直接从 params 获取
         val viewModel = context.params["viewModel"] as? MyViewModel
     }
 }
 ```
 
-#### 4.5.1 参数合并优先级
-
-当同一参数在多处定义时，优先级（高 → 低）：
-1. `extras` 字典（最高优先级）
-2. `params.toMap()` 类型安全参数
-3. URL query 参数
-4. URL path 参数
-5. 路由默认配置（最低）
-
-#### 4.5.2 对象生命周期管理
-
-`extras` 中的对象引用采用**路由完成后自动清理**策略：
-
-```kotlin
-// commonMain
-data class RouteContext(
-    val url: String,
-    val parsedRoute: ParsedRoute,
-    val params: Map<String, Any?>,       // 合并后的参数（只读）
-    val source: RouteSource,
-    val timestamp: Long,
-    internal val objectStore: ObjectStore  // 内部对象存储
-) {
-    /**
-     * 获取对象引用（会从 objectStore 中取出）
-     * 路由完成后 objectStore 会被清理
-     */
-    inline fun <reified T> getObject(key: String): T? = objectStore.get(key) as? T
-}
-
-// 路由执行流程：
-// 1. router.open() 调用时，extras 中的对象存入 RouteContext.objectStore
-// 2. 目标页面通过 context.getObject() 获取对象
-// 3. 路由完成（目标页面 onCreate 执行完毕）后，objectStore 自动清理
-// 4. 如目标页面需要长期持有对象，应在 onCreate 中保存引用
-```
-
-#### 4.5.3 参数提取工具
+#### 4.5.4 参数提取工具
 
 ```kotlin
 // 扩展函数，方便类型安全地获取参数
@@ -498,7 +545,7 @@ data class RouteEvent(
 router.setFallbackHandler(object : FallbackHandler {
     override fun onRouteNotFound(context: RouteContext): FallbackAction {
         // 可选：跳转到 404 页面、首页、或执行其他逻辑
-        return FallbackAction.NavigateTo("worldfirst://error/404?originalUrl=${context.url}")
+        return FallbackAction.NavigateTo("iap://error/404?originalUrl=${context.url}")
     }
 
     override fun onRouteError(context: RouteContext, error: Throwable): FallbackAction {
@@ -523,7 +570,7 @@ routeRegistry.registerPage(
         pageId = "paymentNewFeature",
         fallback = FallbackConfig(
             condition = { appVersion < "5.0.0" },  // 版本判断
-            action = FallbackAction.NavigateTo("worldfirst://h5/payment/newFeature")
+            action = FallbackAction.NavigateTo("iap://h5/payment/newFeature")
         )
     )
 )
@@ -533,22 +580,22 @@ routeRegistry.registerPage(
 
 ## 六、分阶段实施计划
 
-### Phase 1: 基础架构搭建（核心路由能力）
+### Phase 1: 基础架构搭建（核心路由能力） ✅ 已完成
 
 **目标**：搭建 KMP 基础架构，实现核心路由解析和匹配能力
 
 **交付物**：
-- [ ] KMP 项目结构搭建（Kotlin 2.2.21 + Gradle 配套版本）
-- [ ] 协议解析器（Protocol Parser）
-- [ ] 路由匹配器（Route Matcher）- 支持灵活深度路径和 path 参数
-- [ ] 路由表管理（Route Registry）- 支持页面路由和 Action 路由注册
-- [ ] 基础 Navigator 接口定义（expect/actual）
-- [ ] 单元测试覆盖核心解析和匹配逻辑
+- [x] KMP 项目结构搭建（Kotlin 2.2.21 + Gradle 配套版本）
+- [x] 协议解析器（Protocol Parser）
+- [x] 路由匹配器（Route Matcher）- 支持灵活深度路径和 path 参数
+- [x] 路由表管理（Route Registry）- 支持页面路由和 Action 路由注册
+- [x] 基础 Navigator 接口定义（expect/actual）
+- [x] 单元测试覆盖核心解析和匹配逻辑（127 个测试）
 
 **关键设计决策**：
-- 协议格式：`worldfirst://{path}?params`
+- 协议格式：`iap://{path}?params`（scheme 可由业务方自定义）
 - 路由匹配支持通配符和 path 参数（如 `:orderId`）
-- 路由表使用 Trie 树或 Map 结构实现高效匹配
+- 路由表使用 Map 结构实现高效匹配
 
 ---
 
@@ -578,7 +625,7 @@ class LoginInterceptor(private val authService: AuthService) : RouteInterceptor 
         if (requireLoginPatterns.any { context.parsedRoute.matchesPattern(it) }) {
             if (!authService.isLoggedIn()) {
                 return RouteResult.Redirect(
-                    newUrl = "worldfirst://auth/login",
+                    newUrl = "iap://auth/login",
                     newParams = mapOf("returnUrl" to context.url)
                 )
             }
@@ -722,10 +769,12 @@ class OrderDetailParams(params: Map<String, Any?>) {
 | 技术点 | 选型 | 说明 |
 |--------|------|------|
 | KMP 版本 | 2.2.21 | 按团队要求 |
-| 协程 | kotlinx.coroutines | 异步拦截器支持 |
+| 协程 | kotlinx.coroutines 1.8.1 | 异步拦截器支持 |
+| URL 编解码 | ktor-http 3.0.3 | 跨平台 URL 编解码 |
 | 序列化 | kotlinx.serialization | 参数序列化（可选） |
 | 测试 | kotlin.test | 跨平台单元测试 |
 | 构建 | Gradle 8.x | 配套 KMP 2.2.21 |
+| Android | AGP 8.2.2 | Android Gradle Plugin |
 
 ---
 
@@ -772,9 +821,9 @@ Request → GlobalInterceptor(priority=10)
 
 ---
 
-*文档版本：v1.1*
+*文档版本：v1.3*
 *创建日期：2025-01-19*
-*最后更新：2025-01-19*
+*最后更新：2025-01-20*
 
 ---
 
@@ -782,5 +831,7 @@ Request → GlobalInterceptor(priority=10)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v1.3 | 2025-01-20 | 简化 API 设计：移除 RouteParams 接口，Router.open 只保留 url + extras；移除 PageRouteConfig 的 requiredParams 和 metadata；移除 RouteContext 的 objectStore；类型安全改为接收侧实现 |
+| v1.2 | 2025-01-20 | 添加进度追踪部分；协议 scheme 从 `worldfirst` 改为 `iap`；添加当前代码结构；更新技术选型（添加 ktor-http）；Phase 1 标记为已完成 |
 | v1.1 | 2025-01-19 | API 命名改为 `open`；移除 `replace` 能力；参数传递改为混合模式（RouteParams + extras）；对象生命周期改为路由完成后清理 |
 | v1.0 | 2025-01-19 | 初始版本 |

@@ -17,21 +17,9 @@ data class PageRouteConfig(
     val pageId: String,
 
     /**
-     * 必需参数列表
-     * 路由执行时会校验这些参数是否存在
-     */
-    val requiredParams: List<String> = emptyList(),
-
-    /**
      * 单路由降级配置
      */
-    val fallback: FallbackConfig? = null,
-
-    /**
-     * 扩展元数据
-     * 可用于存储自定义信息，如权限要求、页面类型等
-     */
-    val metadata: Map<String, Any?> = emptyMap()
+    val fallback: FallbackConfig? = null
 )
 
 /**
@@ -41,15 +29,5 @@ data class ActionRouteConfig(
     /**
      * Action 名称标识
      */
-    val actionName: String,
-
-    /**
-     * 必需参数列表
-     */
-    val requiredParams: List<String> = emptyList(),
-
-    /**
-     * 扩展元数据
-     */
-    val metadata: Map<String, Any?> = emptyMap()
+    val actionName: String
 )

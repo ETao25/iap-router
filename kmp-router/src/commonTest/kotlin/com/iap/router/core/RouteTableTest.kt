@@ -216,9 +216,7 @@ class RouteTableTest {
     fun `getPageConfig should return config for registered route`() {
         val table = RouteTable()
         val config = PageRouteConfig(
-            pageId = "orderDetail",
-            requiredParams = listOf("orderId"),
-            metadata = mapOf("requireLogin" to true)
+            pageId = "orderDetail"
         )
         table.registerPage("order/detail/:orderId", config)
 
@@ -226,8 +224,6 @@ class RouteTableTest {
 
         assertNotNull(retrieved)
         assertEquals("orderDetail", retrieved.pageId)
-        assertEquals(listOf("orderId"), retrieved.requiredParams)
-        assertEquals(true, retrieved.metadata["requireLogin"])
     }
 
     @Test

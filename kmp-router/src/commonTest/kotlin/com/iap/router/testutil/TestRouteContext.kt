@@ -3,7 +3,6 @@ package com.iap.router.testutil
 import com.iap.router.core.ProtocolParser
 import com.iap.router.model.RouteContext
 import com.iap.router.model.RouteSource
-import com.iap.router.params.ObjectStore
 
 /**
  * 创建测试用的 RouteContext
@@ -20,7 +19,6 @@ fun createTestRouteContext(
         parsedRoute = parsedRoute,
         params = params,
         source = source,
-        timestamp = 0L,  // 测试环境使用固定值
-        objectStore = ObjectStore()
+        timestamp = 0L  // 测试环境使用固定值
     )
 }
