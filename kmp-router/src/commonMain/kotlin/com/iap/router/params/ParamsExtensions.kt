@@ -105,6 +105,33 @@ fun Map<String, Any?>.optDouble(key: String, default: Double = 0.0): Double {
 }
 
 /**
+ * 获取必需的 Float 参数
+ * @throws ParamValidationException 参数不存在或无法转换时抛出
+ */
+fun Map<String, Any?>.requireFloat(key: String): Float {
+    val value = this[key]
+        ?: throw ParamValidationException(key, "Missing required param: $key")
+    return when (value) {
+        is Number -> value.toFloat()
+        is String -> value.toFloatOrNull()
+            ?: throw ParamValidationException(key, "Cannot convert '$value' to Float")
+        else -> throw ParamValidationException(key, "Cannot convert '${value::class.simpleName}' to Float")
+    }
+}
+
+/**
+ * 获取可选的 Float 参数
+ */
+fun Map<String, Any?>.optFloat(key: String, default: Float = 0.0f): Float {
+    val value = this[key] ?: return default
+    return when (value) {
+        is Number -> value.toFloat()
+        is String -> value.toFloatOrNull() ?: default
+        else -> default
+    }
+}
+
+/**
  * 获取必需的 Boolean 参数
  * @throws ParamValidationException 参数不存在时抛出
  */
@@ -142,11 +169,35 @@ fun <T> Map<String, Any?>.optList(key: String): List<T>? {
 }
 
 /**
+ * 获取必需的 List 参数
+ * @throws ParamValidationException 参数不存在或类型不匹配时抛出
+ */
+@Suppress("UNCHECKED_CAST")
+fun <T> Map<String, Any?>.requireList(key: String): List<T> {
+    val value = this[key]
+        ?: throw ParamValidationException(key, "Missing required param: $key")
+    return (value as? List<T>)
+        ?: throw ParamValidationException(key, "Cannot convert '${value::class.simpleName}' to List")
+}
+
+/**
  * 获取可选的 Map 参数
  */
 @Suppress("UNCHECKED_CAST")
 fun <K, V> Map<String, Any?>.optMap(key: String): Map<K, V>? {
     return this[key] as? Map<K, V>
+}
+
+/**
+ * 获取必需的 Map 参数
+ * @throws ParamValidationException 参数不存在或类型不匹配时抛出
+ */
+@Suppress("UNCHECKED_CAST")
+fun <K, V> Map<String, Any?>.requireMap(key: String): Map<K, V> {
+    val value = this[key]
+        ?: throw ParamValidationException(key, "Missing required param: $key")
+    return (value as? Map<K, V>)
+        ?: throw ParamValidationException(key, "Cannot convert '${value::class.simpleName}' to Map")
 }
 
 /**

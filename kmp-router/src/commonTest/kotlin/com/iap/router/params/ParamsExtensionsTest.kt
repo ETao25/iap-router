@@ -269,4 +269,125 @@ class ParamsExtensionsTest {
 
         assertNull(params.optMap<String, String>("data"))
     }
+
+    // ==================== requireFloat 测试 ====================
+
+    @Test
+    fun `requireFloat should return value when key exists`() {
+        val params = mapOf<String, Any?>("ratio" to 0.5f)
+
+        assertEquals(0.5f, params.requireFloat("ratio"))
+    }
+
+    @Test
+    fun `requireFloat should convert double to float`() {
+        val params = mapOf<String, Any?>("ratio" to 0.5)
+
+        assertEquals(0.5f, params.requireFloat("ratio"))
+    }
+
+    @Test
+    fun `requireFloat should convert string to float`() {
+        val params = mapOf<String, Any?>("ratio" to "0.5")
+
+        assertEquals(0.5f, params.requireFloat("ratio"))
+    }
+
+    @Test
+    fun `requireFloat should throw when key is missing`() {
+        val params = emptyMap<String, Any?>()
+
+        assertFailsWith<ParamValidationException> {
+            params.requireFloat("ratio")
+        }
+    }
+
+    @Test
+    fun `requireFloat should throw when value cannot be converted`() {
+        val params = mapOf<String, Any?>("ratio" to "not a number")
+
+        assertFailsWith<ParamValidationException> {
+            params.requireFloat("ratio")
+        }
+    }
+
+    // ==================== optFloat 测试 ====================
+
+    @Test
+    fun `optFloat should return value when key exists`() {
+        val params = mapOf<String, Any?>("ratio" to 0.5f)
+
+        assertEquals(0.5f, params.optFloat("ratio"))
+    }
+
+    @Test
+    fun `optFloat should return default when key is missing`() {
+        val params = emptyMap<String, Any?>()
+
+        assertEquals(0.0f, params.optFloat("ratio"))
+        assertEquals(1.0f, params.optFloat("ratio", 1.0f))
+    }
+
+    @Test
+    fun `optFloat should return default when value cannot be converted`() {
+        val params = mapOf<String, Any?>("ratio" to "not a number")
+
+        assertEquals(0.0f, params.optFloat("ratio"))
+    }
+
+    // ==================== requireList 测试 ====================
+
+    @Test
+    fun `requireList should return list when key exists`() {
+        val params = mapOf<String, Any?>("items" to listOf("a", "b", "c"))
+
+        val list = params.requireList<String>("items")
+        assertEquals(listOf("a", "b", "c"), list)
+    }
+
+    @Test
+    fun `requireList should throw when key is missing`() {
+        val params = emptyMap<String, Any?>()
+
+        assertFailsWith<ParamValidationException> {
+            params.requireList<String>("items")
+        }
+    }
+
+    @Test
+    fun `requireList should throw when value is not a list`() {
+        val params = mapOf<String, Any?>("items" to "not a list")
+
+        assertFailsWith<ParamValidationException> {
+            params.requireList<String>("items")
+        }
+    }
+
+    // ==================== requireMap 测试 ====================
+
+    @Test
+    fun `requireMap should return map when key exists`() {
+        val params = mapOf<String, Any?>("data" to mapOf("key" to "value"))
+
+        val map = params.requireMap<String, String>("data")
+        assertEquals(mapOf("key" to "value"), map)
+    }
+
+    @Test
+    fun `requireMap should throw when key is missing`() {
+        val params = emptyMap<String, Any?>()
+
+        assertFailsWith<ParamValidationException> {
+            params.requireMap<String, String>("data")
+        }
+    }
+
+    @Test
+    fun `requireMap should throw when value is not a map`() {
+        val params = mapOf<String, Any?>("data" to "not a map")
+
+        assertFailsWith<ParamValidationException> {
+            params.requireMap<String, String>("data")
+        }
+    }
 }
