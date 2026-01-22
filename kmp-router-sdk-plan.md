@@ -17,7 +17,7 @@
 | **Phase 7** | 迁移工具与文档 | ⏳ 待开始 | 0% | |
 | **Phase 8** | 优化与稳定 | ⏳ 待开始 | 0% | |
 
-> 当前总测试数：178 个
+> 当前总测试数：185 个
 
 ### Phase 1 完成情况
 
@@ -106,7 +106,7 @@ kmp-router/
     │   │   └── ObserverManager.kt      # 观察者管理器
     │   ├── platform/
     │   │   ├── Navigator.kt        # 导航器接口
-    │   │   ├── PageFactory.kt      # 页面工厂接口
+    │   │   ├── PlatformPage.kt     # 平台页面基类 (expect) + PageBuilder + PageTarget
     │   │   └── ActionExecutor.kt   # Action 执行器接口
     │   ├── params/
     │   │   └── ParamsExtensions.kt # 参数扩展
@@ -233,8 +233,7 @@ kmp-router/
 | **Params Manager** | 类型转换、内存缓存对象引用、参数校验 | KMP Shared |
 | **Fallback Handler** | 路由失败时的降级处理 | KMP Shared |
 | **Observer/Callback** | 路由事件回调（用于埋点监控） | KMP Shared |
-| **Navigator** | 实际执行页面跳转（push/present） | Platform |
-| **PageFactory** | 创建目标页面实例 | Platform |
+| **Navigator** | 实际执行页面跳转（push/present），直接调用底层路由 | Platform |
 | **ActionExecutor** | 执行 Action 路由的具体逻辑 | Platform |
 | **Legacy Adapter** | 旧协议到新协议的转换 | Platform/Business |
 
@@ -366,13 +365,53 @@ interface Router {
 
 ```kotlin
 // commonMain
+
+/**
+ * 平台页面基类（类型安全）
+ * iOS: UIViewController
+ * Android: Activity
+ */
+expect abstract class PlatformPage
+
+/**
+ * 页面构建器接口（类型安全）
+ */
+fun interface PageBuilder {
+    fun build(params: Map<String, Any?>): PlatformPage
+}
+
+/**
+ * 页面目标：封装 builder 或 class 两种注册方式
+ */
+sealed class PageTarget {
+    data class Builder(val builder: PageBuilder) : PageTarget()
+    data class ClassRef(val pageClass: KClass<out PlatformPage>) : PageTarget()
+}
+
 interface RouteRegistry {
     /**
-     * 注册页面路由
+     * 注册页面路由（通过 builder，类型安全）
      * @param pattern 路由模式，如 "order/detail/:orderId"
-     * @param config 路由配置
+     * @param builder 页面构建器，返回类型限制为 PlatformPage
+     * @param fallback 可选的降级配置
      */
-    fun registerPage(pattern: String, config: PageRouteConfig)
+    fun registerPage(
+        pattern: String,
+        builder: PageBuilder,
+        fallback: FallbackConfig? = null
+    )
+
+    /**
+     * 注册页面路由（通过 class，类型安全）
+     * @param pattern 路由模式
+     * @param pageClass 页面类，必须是 PlatformPage 子类
+     * @param fallback 可选的降级配置
+     */
+    fun <T : PlatformPage> registerPage(
+        pattern: String,
+        pageClass: KClass<T>,
+        fallback: FallbackConfig? = null
+    )
 
     /**
      * 注册 Action 路由
@@ -388,12 +427,27 @@ interface RouteRegistry {
 }
 
 data class PageRouteConfig(
-    val pageId: String,                       // 页面业务标识符，用于：
-                                              // 1. 与 VC/Activity 类名或注册标识对应
-                                              // 2. 埋点、日志中的页面标识
-                                              // 3. 白名单/黑名单控制
-                                              // 注：pageId 与 pattern 独立，pattern 是 URL 路径匹配模式
+    val target: PageTarget,                   // 页面目标（builder 或 class）
+    val pageId: String? = null,               // 页面业务标识符（可选，默认使用 pattern）
     val fallback: FallbackConfig? = null      // 单路由降级配置
+)
+```
+
+**使用示例（Kotlin）：**
+```kotlin
+// 方式1：通过 builder 注册（类型安全）
+routeRegistry.registerPage("order/detail/:orderId", PageBuilder { params ->
+    OrderDetailViewController(params)  // iOS 必须返回 UIViewController
+})
+
+// 方式2：通过 class 注册
+routeRegistry.registerPage("account/settings", AccountSettingsActivity::class)
+
+// 方式3：带降级配置
+routeRegistry.registerPage(
+    pattern = "payment/newFeature",
+    builder = PageBuilder { PaymentNewFeatureVC() },
+    fallback = FallbackConfig(...)
 )
 ```
 
@@ -445,6 +499,9 @@ sealed class RouteResult {
 expect interface Navigator {
     /**
      * Push 跳转（默认导航方式）
+     * @param pageId 页面标识符（来自 PageRouteConfig，可能是 pattern 或显式指定的值）
+     * @param params 合并后的参数
+     * @param options 导航选项
      */
     fun push(pageId: String, params: Map<String, Any?>, options: NavigationOptions)
 
@@ -465,10 +522,19 @@ data class NavigationOptions(
     val navMode: NavMode = NavMode.PUSH
 )
 
-expect interface PageFactory {
-    fun canCreate(pageId: String): Boolean
-    fun create(pageId: String, params: Map<String, Any?>): Any // Platform-specific page type
-}
+// iOS 实现示例 - 直接调用底层 IAPRouter
+// class IOSNavigator : Navigator {
+//     override fun push(pageId: String, params: Map<String, Any?>, options: NavigationOptions) {
+//         IAPRouter.shared.open(pageId: pageId, params: params)
+//     }
+// }
+
+// Android 实现示例
+// class AndroidNavigator : Navigator {
+//     override fun push(pageId: String, params: Map<String, Any?>, options: NavigationOptions) {
+//         AndroidRouter.open(pageId, params)
+//     }
+// }
 
 expect interface ActionExecutor {
     fun execute(actionName: String, params: Map<String, Any?>, callback: ActionCallback?)
@@ -746,9 +812,8 @@ class OrderDetailParams(params: Map<String, Any?>) {
 
 **交付物**：
 - [ ] iOS Navigator actual 实现
-  - push 实现（使用 SDK 默认 TopVC 查找逻辑）
+  - push 实现（直接调用 IAPRouter，传入 pageId 和参数）
   - present 实现（支持 presentationStyle 参数）
-- [ ] iOS PageFactory actual 实现
 - [ ] iOS ActionExecutor actual 实现
 - [ ] 旧协议适配器（LegacyRouteAdapter）
 - [ ] 现有拦截器迁移到新 SDK
@@ -768,9 +833,8 @@ class OrderDetailParams(params: Map<String, Any?>) {
 
 **交付物**：
 - [ ] Android Navigator actual 实现
-  - push 实现（Activity 跳转）
+  - push 实现（直接调用 AndroidRouter，传入 pageId 和参数）
   - present 实现（可按需实现或忽略）
-- [ ] Android PageFactory actual 实现
 - [ ] Android ActionExecutor actual 实现
 - [ ] 旧协议适配器（LegacyRouteAdapter）
 - [ ] 现有拦截器迁移到新 SDK
@@ -876,9 +940,9 @@ Request → GlobalInterceptor(priority=10)
 
 ---
 
-*文档版本：v1.3*
+*文档版本：v1.6*
 *创建日期：2025-01-19*
-*最后更新：2025-01-20*
+*最后更新：2026-01-23*
 
 ---
 
@@ -886,6 +950,8 @@ Request → GlobalInterceptor(priority=10)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v1.6 | 2026-01-23 | 统一路由注册 API：新增类型安全的 PlatformPage (expect/actual)、PageBuilder、PageTarget；支持 builder 和 class 两种注册方式；iOS 返回 UIViewController，Android 返回 Activity |
+| v1.5 | 2026-01-22 | 简化路由注册架构：pageId 改为可选（默认使用 pattern）；移除 PageFactory 接口（平台已有页面创建逻辑）；Navigator 直接调用底层路由 |
 | v1.4 | 2026-01-21 | Router.open 参数从 `extras` 改为 `params`；移除 NavigationOptions.extras |
 | v1.3 | 2025-01-20 | 简化 API 设计：移除 RouteParams 接口，Router.open 只保留 url + params；移除 PageRouteConfig 的 requiredParams 和 metadata；移除 RouteContext 的 objectStore；类型安全改为接收侧实现 |
 | v1.2 | 2025-01-20 | 添加进度追踪部分；协议 scheme 从 `worldfirst` 改为 `iap`；添加当前代码结构；更新技术选型（添加 ktor-http）；Phase 1 标记为已完成 |

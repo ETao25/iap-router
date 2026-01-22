@@ -2,8 +2,13 @@ package com.iap.router
 
 import com.iap.router.core.ActionHandler
 import com.iap.router.core.RouteTable
+import com.iap.router.fallback.FallbackConfig
 import com.iap.router.model.ActionRouteConfig
 import com.iap.router.model.PageRouteConfig
+import com.iap.router.platform.PageBuilder
+import com.iap.router.platform.PageTarget
+import com.iap.router.platform.PlatformPage
+import kotlin.reflect.KClass
 
 /**
  * 路由定义（用于批量注册）
@@ -26,9 +31,33 @@ sealed class RouteDefinition {
  */
 interface RouteRegistry {
     /**
-     * 注册页面路由
+     * 注册页面路由（通过 builder）
      * @param pattern 路由模式，如 "order/detail/:orderId"
-     * @param config 路由配置
+     * @param builder 页面构建器（类型安全，返回 PlatformPage）
+     * @param fallback 可选的降级配置
+     */
+    fun registerPage(
+        pattern: String,
+        builder: PageBuilder,
+        fallback: FallbackConfig? = null
+    )
+
+    /**
+     * 注册页面路由（通过 class）
+     * @param pattern 路由模式，如 "order/detail/:orderId"
+     * @param pageClass 页面类（类型安全，必须是 PlatformPage 子类）
+     * @param fallback 可选的降级配置
+     */
+    fun <T : PlatformPage> registerPage(
+        pattern: String,
+        pageClass: KClass<T>,
+        fallback: FallbackConfig? = null
+    )
+
+    /**
+     * 注册页面路由（完整配置）
+     * @param pattern 路由模式
+     * @param config 完整的页面路由配置
      */
     fun registerPage(pattern: String, config: PageRouteConfig)
 
@@ -75,6 +104,22 @@ class RouteRegistryImpl(
     private val routeTable: RouteTable
 ) : RouteRegistry {
 
+    override fun registerPage(
+        pattern: String,
+        builder: PageBuilder,
+        fallback: FallbackConfig?
+    ) {
+        routeTable.registerPage(pattern, builder, fallback)
+    }
+
+    override fun <T : PlatformPage> registerPage(
+        pattern: String,
+        pageClass: KClass<T>,
+        fallback: FallbackConfig?
+    ) {
+        routeTable.registerPage(pattern, pageClass, fallback)
+    }
+
     override fun registerPage(pattern: String, config: PageRouteConfig) {
         routeTable.registerPage(pattern, config)
     }
@@ -111,4 +156,14 @@ class RouteRegistryImpl(
     override fun unregisterAction(actionName: String): Boolean {
         return routeTable.removeAction(actionName)
     }
+}
+
+/**
+ * 便捷扩展：使用 reified 类型参数注册页面
+ */
+inline fun <reified T : PlatformPage> RouteRegistry.registerPage(
+    pattern: String,
+    fallback: FallbackConfig? = null
+) {
+    registerPage(pattern, T::class, fallback)
 }

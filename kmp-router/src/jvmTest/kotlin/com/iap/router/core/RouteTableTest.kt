@@ -2,6 +2,12 @@ package com.iap.router.core
 
 import com.iap.router.model.ActionRouteConfig
 import com.iap.router.model.PageRouteConfig
+import com.iap.router.platform.PageBuilder
+import com.iap.router.platform.PageTarget
+import com.iap.router.testutil.TestPage
+import com.iap.router.testutil.OrderDetailTestPage
+import com.iap.router.testutil.FxChartTestPage
+import com.iap.router.testutil.PaymentTestPage
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -12,25 +18,87 @@ import kotlin.test.assertTrue
 
 class RouteTableTest {
 
-    // ==================== 页面路由注册测试 ====================
+    // ==================== 页面路由注册测试（builder 方式）====================
 
     @Test
-    fun `registerPage should add page route to table`() {
+    fun `registerPage with builder should add page route to table`() {
         val table = RouteTable()
-        val config = PageRouteConfig(pageId = "orderDetail")
 
-        table.registerPage("order/detail/:orderId", config)
+        table.registerPage("order/detail/:orderId", PageBuilder { params ->
+            OrderDetailTestPage(params["orderId"] as? String)
+        })
 
         assertTrue(table.contains("order/detail/:orderId"))
         assertEquals(1, table.size())
     }
 
     @Test
+    fun `registerPage with builder should use pattern as pageId`() {
+        val table = RouteTable()
+
+        table.registerPage("order/detail/:orderId", PageBuilder { TestPage() })
+
+        assertEquals("order/detail/:orderId", table.getPageConfig("order/detail/:orderId")?.pageId)
+    }
+
+    // ==================== 页面路由注册测试（class 方式）====================
+
+    @Test
+    fun `registerPage with class should add page route to table`() {
+        val table = RouteTable()
+
+        table.registerPage("order/detail", TestPage::class)
+
+        assertTrue(table.contains("order/detail"))
+        assertEquals(1, table.size())
+    }
+
+    @Test
+    fun `registerPage with class should use pattern as pageId`() {
+        val table = RouteTable()
+
+        table.registerPage("account/settings", TestPage::class)
+
+        assertEquals("account/settings", table.getPageConfig("account/settings")?.pageId)
+    }
+
+    // ==================== 页面路由注册测试（config 方式）====================
+
+    @Test
+    fun `registerPage with config should store target and pageId`() {
+        val table = RouteTable()
+        val builder = PageBuilder { TestPage() }
+        val config = PageRouteConfig(
+            target = PageTarget.Builder(builder),
+            pageId = "customPageId"
+        )
+
+        table.registerPage("order/detail", config)
+
+        val retrieved = table.getPageConfig("order/detail")
+        assertNotNull(retrieved)
+        assertEquals("customPageId", retrieved.pageId)
+        assertIs<PageTarget.Builder>(retrieved.target)
+    }
+
+    @Test
+    fun `registerPage with config and null pageId should use pattern as pageId`() {
+        val table = RouteTable()
+        val config = PageRouteConfig(
+            target = PageTarget.ClassRef(TestPage::class),
+            pageId = null
+        )
+
+        table.registerPage("order/detail", config)
+
+        assertEquals("order/detail", table.getPageConfig("order/detail")?.pageId)
+    }
+
+    @Test
     fun `registerPage should normalize pattern by removing leading slash`() {
         val table = RouteTable()
-        val config = PageRouteConfig(pageId = "orderDetail")
 
-        table.registerPage("/order/detail", config)
+        table.registerPage("/order/detail", PageBuilder { TestPage() })
 
         assertTrue(table.contains("order/detail"))
     }
@@ -38,14 +106,11 @@ class RouteTableTest {
     @Test
     fun `registerPage should overwrite existing route`() {
         val table = RouteTable()
-        val config1 = PageRouteConfig(pageId = "orderDetail1")
-        val config2 = PageRouteConfig(pageId = "orderDetail2")
 
-        table.registerPage("order/detail", config1)
-        table.registerPage("order/detail", config2)
+        table.registerPage("order/detail", PageBuilder { TestPage("first") })
+        table.registerPage("order/detail", PageBuilder { TestPage("second") })
 
         assertEquals(1, table.size())
-        assertEquals("orderDetail2", table.getPageConfig("order/detail")?.pageId)
     }
 
     // ==================== Action 路由注册测试 ====================
@@ -76,15 +141,16 @@ class RouteTableTest {
     @Test
     fun `lookup should find registered page route`() {
         val table = RouteTable()
-        val config = PageRouteConfig(pageId = "orderDetail")
-        table.registerPage("order/detail/:orderId", config)
+        table.registerPage("order/detail/:orderId", PageBuilder { params ->
+            OrderDetailTestPage(params["orderId"] as? String)
+        })
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://order/detail/123")!!
         val result = table.lookup(parsedRoute)
 
         assertNotNull(result)
         assertIs<RouteLookupResult.PageRoute>(result)
-        assertEquals("orderDetail", result.config.pageId)
+        assertEquals("order/detail/:orderId", result.config.pageId)
         assertEquals("123", result.matchResult.pathParams["orderId"])
     }
 
@@ -115,22 +181,22 @@ class RouteTableTest {
     @Test
     fun `lookup should match best pattern when multiple patterns match`() {
         val table = RouteTable()
-        table.registerPage("order/*", PageRouteConfig(pageId = "orderWildcard"))
-        table.registerPage("order/detail/:id", PageRouteConfig(pageId = "orderDetailParam"))
-        table.registerPage("order/detail", PageRouteConfig(pageId = "orderDetailExact"))
+        table.registerPage("order/*", PageBuilder { TestPage("wildcard") })
+        table.registerPage("order/detail/:id", PageBuilder { TestPage("param") })
+        table.registerPage("order/detail", PageBuilder { TestPage("exact") })
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://order/detail")!!
         val result = table.lookup(parsedRoute)
 
         assertNotNull(result)
         assertIs<RouteLookupResult.PageRoute>(result)
-        assertEquals("orderDetailExact", result.config.pageId)
+        assertEquals("order/detail", result.config.pageId)
     }
 
     @Test
     fun `lookup should prefer action route for action prefix`() {
         val table = RouteTable()
-        table.registerPage("action/showPopup", PageRouteConfig(pageId = "actionPage"))
+        table.registerPage("action/showPopup", PageBuilder { TestPage() })
         table.registerAction("showPopup", ActionRouteConfig("showPopup"), TestActionHandler())
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://action/showPopup")!!
@@ -145,7 +211,7 @@ class RouteTableTest {
     @Test
     fun `canOpen should return true for registered route`() {
         val table = RouteTable()
-        table.registerPage("order/detail", PageRouteConfig(pageId = "orderDetail"))
+        table.registerPage("order/detail", PageBuilder { TestPage() })
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://order/detail")!!
 
@@ -166,7 +232,7 @@ class RouteTableTest {
     @Test
     fun `removePage should remove registered page route`() {
         val table = RouteTable()
-        table.registerPage("order/detail", PageRouteConfig(pageId = "orderDetail"))
+        table.registerPage("order/detail", PageBuilder { TestPage() })
 
         val removed = table.removePage("order/detail")
 
@@ -199,8 +265,8 @@ class RouteTableTest {
     @Test
     fun `clear should remove all routes`() {
         val table = RouteTable()
-        table.registerPage("order/detail", PageRouteConfig(pageId = "orderDetail"))
-        table.registerPage("account/settings", PageRouteConfig(pageId = "accountSettings"))
+        table.registerPage("order/detail", PageBuilder { TestPage() })
+        table.registerPage("account/settings", PageBuilder { TestPage() })
         table.registerAction("showPopup", ActionRouteConfig("showPopup"), TestActionHandler())
 
         table.clear()
@@ -215,15 +281,15 @@ class RouteTableTest {
     @Test
     fun `getPageConfig should return config for registered route`() {
         val table = RouteTable()
-        val config = PageRouteConfig(
-            pageId = "orderDetail"
-        )
-        table.registerPage("order/detail/:orderId", config)
+        table.registerPage("order/detail/:orderId", PageBuilder { params ->
+            OrderDetailTestPage(params["orderId"] as? String)
+        })
 
         val retrieved = table.getPageConfig("order/detail/:orderId")
 
         assertNotNull(retrieved)
-        assertEquals("orderDetail", retrieved.pageId)
+        assertEquals("order/detail/:orderId", retrieved.pageId)
+        assertIs<PageTarget.Builder>(retrieved.target)
     }
 
     @Test
@@ -240,8 +306,8 @@ class RouteTableTest {
     @Test
     fun `getPagePatterns should return all registered page patterns`() {
         val table = RouteTable()
-        table.registerPage("order/detail", PageRouteConfig(pageId = "orderDetail"))
-        table.registerPage("account/settings", PageRouteConfig(pageId = "accountSettings"))
+        table.registerPage("order/detail", PageBuilder { TestPage() })
+        table.registerPage("account/settings", PageBuilder { TestPage() })
 
         val patterns = table.getPagePatterns()
 
@@ -268,7 +334,9 @@ class RouteTableTest {
     @Test
     fun `lookup should extract path params for matched route`() {
         val table = RouteTable()
-        table.registerPage("fx/:pairId/chart", PageRouteConfig(pageId = "fxChart"))
+        table.registerPage("fx/:pairId/chart", PageBuilder { params ->
+            FxChartTestPage(params["pairId"] as? String)
+        })
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://fx/USDCNY/chart")!!
         val result = table.lookup(parsedRoute)
@@ -281,15 +349,47 @@ class RouteTableTest {
     @Test
     fun `lookup should handle wildcard routes`() {
         val table = RouteTable()
-        table.registerPage("payment/*", PageRouteConfig(pageId = "paymentWildcard"))
+        table.registerPage("payment/*", PageBuilder { PaymentTestPage() })
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://payment/card/bind/new")!!
         val result = table.lookup(parsedRoute)
 
         assertNotNull(result)
         assertIs<RouteLookupResult.PageRoute>(result)
-        assertEquals("paymentWildcard", result.config.pageId)
+        assertEquals("payment/*", result.config.pageId)
         assertEquals("card/bind/new", result.matchResult.pathParams["*"])
+    }
+
+    // ==================== PageTarget 测试 ====================
+
+    @Test
+    fun `PageTarget Builder should store builder correctly`() {
+        val table = RouteTable()
+        val testPage = TestPage("test")
+
+        table.registerPage("test", PageBuilder { testPage })
+
+        val config = table.getPageConfig("test")
+        assertNotNull(config)
+        val target = config.target
+        assertIs<PageTarget.Builder>(target)
+
+        // 验证 builder 能正确创建页面
+        val createdPage = target.builder.build(emptyMap())
+        assertIs<TestPage>(createdPage)
+    }
+
+    @Test
+    fun `PageTarget ClassRef should store class correctly`() {
+        val table = RouteTable()
+
+        table.registerPage("test", TestPage::class)
+
+        val config = table.getPageConfig("test")
+        assertNotNull(config)
+        val target = config.target
+        assertIs<PageTarget.ClassRef>(target)
+        assertEquals(TestPage::class, target.pageClass)
     }
 
     // ==================== 测试辅助类 ====================

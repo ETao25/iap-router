@@ -1,8 +1,13 @@
 package com.iap.router.core
 
+import com.iap.router.fallback.FallbackConfig
 import com.iap.router.model.ActionRouteConfig
 import com.iap.router.model.PageRouteConfig
 import com.iap.router.model.ParsedRoute
+import com.iap.router.platform.PageBuilder
+import com.iap.router.platform.PageTarget
+import com.iap.router.platform.PlatformPage
+import kotlin.reflect.KClass
 
 /**
  * 路由条目（内部使用）
@@ -71,13 +76,59 @@ class RouteTable {
     private val actionRoutes = mutableMapOf<String, RouteEntry.Action>()
 
     /**
-     * 注册页面路由
+     * 注册页面路由（通过 builder）
+     * @param pattern 路由模式，如 "order/detail/:orderId"
+     * @param builder 页面构建器
+     * @param fallback 可选的降级配置
+     */
+    fun registerPage(
+        pattern: String,
+        builder: PageBuilder,
+        fallback: FallbackConfig? = null
+    ) {
+        val normalizedPattern = normalizePattern(pattern)
+        val config = PageRouteConfig(
+            target = PageTarget.Builder(builder),
+            pageId = normalizedPattern,
+            fallback = fallback
+        )
+        pageRoutes[normalizedPattern] = RouteEntry.Page(normalizedPattern, config)
+    }
+
+    /**
+     * 注册页面路由（通过 class）
+     * @param pattern 路由模式，如 "order/detail/:orderId"
+     * @param pageClass 页面类
+     * @param fallback 可选的降级配置
+     */
+    fun <T : PlatformPage> registerPage(
+        pattern: String,
+        pageClass: KClass<T>,
+        fallback: FallbackConfig? = null
+    ) {
+        val normalizedPattern = normalizePattern(pattern)
+        val config = PageRouteConfig(
+            target = PageTarget.ClassRef(pageClass),
+            pageId = normalizedPattern,
+            fallback = fallback
+        )
+        pageRoutes[normalizedPattern] = RouteEntry.Page(normalizedPattern, config)
+    }
+
+    /**
+     * 注册页面路由（完整配置）
      * @param pattern 路由模式，如 "order/detail/:orderId"
      * @param config 页面路由配置
      */
     fun registerPage(pattern: String, config: PageRouteConfig) {
         val normalizedPattern = normalizePattern(pattern)
-        pageRoutes[normalizedPattern] = RouteEntry.Page(normalizedPattern, config)
+        // 如果 pageId 为空，使用完整 pattern 作为 pageId
+        val effectiveConfig = if (config.pageId == null) {
+            config.copy(pageId = normalizedPattern)
+        } else {
+            config
+        }
+        pageRoutes[normalizedPattern] = RouteEntry.Page(normalizedPattern, effectiveConfig)
     }
 
     /**
