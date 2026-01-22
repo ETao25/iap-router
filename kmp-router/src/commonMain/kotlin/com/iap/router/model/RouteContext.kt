@@ -9,7 +9,7 @@ data class RouteContext(
     val url: String,
     /** 解析后的路由信息 */
     val parsedRoute: ParsedRoute,
-    /** 合并后的参数（URL path/query + extras） */
+    /** 合并后的参数（URL path/query + params） */
     val params: Map<String, Any?>,
     /** 路由来源 */
     val source: RouteSource,

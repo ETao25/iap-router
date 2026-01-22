@@ -18,12 +18,7 @@ data class NavigationOptions(
     /**
      * 导航模式
      */
-    val navMode: NavMode = NavMode.PUSH,
-
-    /**
-     * 平台特有参数
-     */
-    val extras: Map<String, Any?> = emptyMap()
+    val navMode: NavMode = NavMode.PUSH
 )
 
 /**

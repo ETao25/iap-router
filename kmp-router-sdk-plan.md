@@ -55,7 +55,7 @@
 - [x] 单元测试覆盖（14 个测试）
 
 > **注意**：根据 v1.3 API 简化设计，以下功能已移除：
-> - ObjectStore（内存缓存管理器）- 改为通过 extras 直接传递对象
+> - ObjectStore（内存缓存管理器）- 改为通过 params 直接传递对象
 > - requiredParams（参数校验器）- 改为接收侧实现类型安全
 > - TTL 管理 - 随 ObjectStore 移除
 
@@ -290,7 +290,7 @@ iap://action/copyText?content=xxx
 iap://order/detail/:orderId?_navMode=present&_presentStyle=pageSheet
 ```
 
-### 3.2 旧协议兼容
+### 3.2 旧协议兼容（注意是业务层实现的，不在SDK中实现）
 
 **旧协议格式**：
 ```
@@ -326,12 +326,12 @@ interface Router {
     /**
      * 执行路由（页面跳转或 Action 执行）
      * @param url 路由 URL
-     * @param extras 额外参数（用于传递对象、平台特有参数等）
+     * @param params 附加参数（用于传递对象、覆盖 URL 参数等）
      * @param callback 路由结果回调
      */
     fun open(
         url: String,
-        extras: Map<String, Any?> = emptyMap(),
+        params: Map<String, Any?> = emptyMap(),
         callback: RouteCallback? = null
     )
 
@@ -425,7 +425,7 @@ interface InterceptorChain {
 data class RouteContext(
     val url: String,
     val parsedRoute: ParsedRoute,
-    val params: Map<String, Any?>,         // 合并后的参数（URL path/query + extras）
+    val params: Map<String, Any?>,         // 合并后的参数（URL path/query + params）
     val source: RouteSource,               // 路由来源
     val timestamp: Long
 )
@@ -462,7 +462,7 @@ expect interface Navigator {
 data class NavigationOptions(
     val animated: Boolean = true,
     val presentStyle: String? = null,  // iOS: fullScreen / pageSheet / formSheet 等
-    val extras: Map<String, Any?> = emptyMap()  // 平台特有参数
+    val navMode: NavMode = NavMode.PUSH
 )
 
 expect interface PageFactory {
@@ -487,16 +487,16 @@ expect interface ActionExecutor {
 // 方式1：纯 URL（简单场景）
 router.open("iap://order/detail/123?from=list")
 
-// 方式2：URL + extras（传递对象或覆盖参数）
+// 方式2：URL + params（传递对象或覆盖参数）
 router.open(
     url = "iap://order/detail/123?from=list",
-    extras = mapOf("viewModel" to myViewModel)
+    params = mapOf("viewModel" to myViewModel)
 )
 
-// 方式3：平台特有参数
+// 方式3：平台特有参数（通过约定前缀）
 router.open(
     url = "iap://order/detail/123",
-    extras = mapOf(
+    params = mapOf(
         "_ios_presentStyle" to "pageSheet",
         "_android_flags" to "FLAG_ACTIVITY_NEW_TASK"
     )
@@ -506,7 +506,7 @@ router.open(
 #### 4.5.2 参数合并优先级
 
 当同一参数在多处定义时，优先级（高 → 低）：
-1. `extras` 字典（最高优先级）
+1. `params` 字典（最高优先级）
 2. URL query 参数
 3. URL path 参数
 
@@ -886,7 +886,8 @@ Request → GlobalInterceptor(priority=10)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
-| v1.3 | 2025-01-20 | 简化 API 设计：移除 RouteParams 接口，Router.open 只保留 url + extras；移除 PageRouteConfig 的 requiredParams 和 metadata；移除 RouteContext 的 objectStore；类型安全改为接收侧实现 |
+| v1.4 | 2026-01-21 | Router.open 参数从 `extras` 改为 `params`；移除 NavigationOptions.extras |
+| v1.3 | 2025-01-20 | 简化 API 设计：移除 RouteParams 接口，Router.open 只保留 url + params；移除 PageRouteConfig 的 requiredParams 和 metadata；移除 RouteContext 的 objectStore；类型安全改为接收侧实现 |
 | v1.2 | 2025-01-20 | 添加进度追踪部分；协议 scheme 从 `worldfirst` 改为 `iap`；添加当前代码结构；更新技术选型（添加 ktor-http）；Phase 1 标记为已完成 |
 | v1.1 | 2025-01-19 | API 命名改为 `open`；移除 `replace` 能力；参数传递改为混合模式（RouteParams + extras）；对象生命周期改为路由完成后清理 |
 | v1.0 | 2025-01-19 | 初始版本 |
