@@ -1,20 +1,61 @@
 pluginManagement {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
-        maven { url = uri("https://maven.aliyun.com/repository/gradle-plugin") }
         google()
-        mavenCentral()
         gradlePluginPortal()
+        mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        maven {
+            url = uri("https://mvn.cloud.alipay.com/nexus/content/repositories/open/")
+            name = "alipay"
+        }
+        maven {
+            credentials {
+                username = "admin"
+                password = "**"
+            }
+            isAllowInsecureProtocol = true
+            url = uri("http://mvn.dev.alipay.net:8081/artifactory/content/groups/alipay-mobile")
+        }
+        maven {
+            credentials {
+                username = "admin"
+                password = "**"
+            }
+            isAllowInsecureProtocol = true
+            url = uri("http://mvn.test.alipay.net/artifactory/content/groups/alipay-mobile")
+        }
     }
 }
 
 dependencyResolutionManagement {
     repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
         google()
         mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        maven {
+            url = uri("https://mvn.cloud.alipay.com/nexus/content/repositories/open/")
+            name = "alipay"
+        }
+        maven {
+            isAllowInsecureProtocol = true
+            url = uri("http://mvn.test.alipay.net/artifactory/content/repositories/mobile/")
+        }
+        maven {
+            credentials {
+                username = "admin"
+                password = "**"
+            }
+            isAllowInsecureProtocol = true
+            url = uri("http://mvn.dev.alipay.net:8081/artifactory/content/groups/alipay-mobile")
+        }
+        maven {
+            credentials {
+                username = "admin"
+                password = "**"
+            }
+            isAllowInsecureProtocol = true
+            url = uri("http://mvn.test.alipay.net/artifactory/content/groups/alipay-mobile")
+        }
     }
 }
 

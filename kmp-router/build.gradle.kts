@@ -1,17 +1,9 @@
-buildscript {
-    repositories {
-        maven { url = uri("https://maven.aliyun.com/repository/google") }
-        maven { url = uri("https://maven.aliyun.com/repository/central") }
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.android.tools.build:gradle:8.2.2")
-    }
-}
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
+    alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.kotlinCocoapods)
 }
 
 apply(plugin = "com.android.library")
@@ -37,6 +29,7 @@ kotlin {
         }
     }
 
+    val iosFrameworkName = "KMPRouter"
     // iOS targets
     listOf(
         iosX64(),
@@ -44,8 +37,21 @@ kotlin {
         iosSimulatorArm64()
     ).forEach { iosTarget ->
         iosTarget.binaries.framework {
-            baseName = "KMPRouter"
+            baseName = iosFrameworkName
             isStatic = true
+        }
+    }
+
+    cocoapods {
+        name = iosFrameworkName
+        summary = "Some description for the Shared Module"
+        homepage = "Link to the Shared Module homepage"
+        version = "1.0"
+        ios.deploymentTarget = "14.0"
+//        podfile = project.file("../iosApp/Podfile")
+        framework {
+            baseName = iosFrameworkName
+            isStatic = false
         }
     }
 
@@ -102,16 +108,15 @@ kotlin {
     }
 }
 
-configure<com.android.build.gradle.LibraryExtension> {
+android {
     namespace = "com.iap.router"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
-        minSdk = 21
+        minSdk = 24
     }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
 }
