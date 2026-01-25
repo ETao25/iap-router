@@ -1,39 +1,20 @@
 package com.iap.router.platform
 
-import kotlin.reflect.KClass
+/**
+ * 平台页面创建器标记接口
+ * 各平台在 iosMain/androidMain 中定义具体实现
+ */
+interface PlatformPageCreator
 
 /**
- * 平台页面基类
- * iOS: UIViewController
- * Android: Activity
- * JVM: Any (用于测试)
+ * 页面目标（平台无关）
+ * 存储平台特定的页面创建器
  */
-expect abstract class PlatformPage
-
-/**
- * 页面构建器接口
- * 类型安全：返回类型限制为 PlatformPage
- */
-fun interface PageBuilder {
+data class PageTarget(
     /**
-     * 构建页面实例
-     * @param params 路由参数
-     * @return 平台特定的页面实例
+     * 平台特定的页面创建器
+     * iOS: IOSPageCreator
+     * Android: AndroidPageCreator
      */
-    fun build(params: Map<String, Any?>): PlatformPage
-}
-
-/**
- * 页面目标：封装 builder 或 class 两种注册方式
- */
-sealed class PageTarget {
-    /**
-     * 通过构建器创建页面
-     */
-    data class Builder(val builder: PageBuilder) : PageTarget()
-
-    /**
-     * 通过类创建页面
-     */
-    data class ClassRef(val pageClass: KClass<out PlatformPage>) : PageTarget()
-}
+    val creator: PlatformPageCreator
+)

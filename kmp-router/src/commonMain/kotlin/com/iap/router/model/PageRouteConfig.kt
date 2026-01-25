@@ -8,7 +8,7 @@ import com.iap.router.platform.PageTarget
  */
 data class PageRouteConfig(
     /**
-     * 页面目标：通过 builder 或 class 方式创建页面
+     * 页面目标：存储平台特定的页面创建器
      */
     val target: PageTarget,
 

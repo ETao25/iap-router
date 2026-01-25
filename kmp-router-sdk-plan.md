@@ -103,10 +103,10 @@ kmp-router/
     │   │   ├── RouteCallback.kt        # 路由回调接口
     │   │   ├── RouteObserver.kt        # 路由观察者接口
     │   │   ├── RouteEvent.kt           # 埋点事件数据
-    │   │   └── ObserverManager.kt      # 观察者管理器
+    │   │   └── ObserverManager.kt      # 观察者管理器（主线程操作）
     │   ├── platform/
     │   │   ├── Navigator.kt        # 导航器接口
-    │   │   ├── PlatformPage.kt     # 平台页面基类 (expect) + PageBuilder + PageTarget
+    │   │   ├── PlatformPage.kt     # PlatformPageCreator 接口 + PageTarget
     │   │   └── ActionExecutor.kt   # Action 执行器接口
     │   ├── params/
     │   │   └── ParamsExtensions.kt # 参数扩展
@@ -120,8 +120,7 @@ kmp-router/
     ├── commonTest/kotlin/com/iap/router/
     │   ├── core/
     │   │   ├── ProtocolParserTest.kt
-    │   │   ├── RouteMatcherTest.kt
-    │   │   └── RouteTableTest.kt
+    │   │   └── RouteMatcherTest.kt
     │   ├── interceptor/
     │   │   ├── InterceptorChainTest.kt
     │   │   └── InterceptorManagerTest.kt
@@ -133,10 +132,18 @@ kmp-router/
     │   │   └── ParamsExtensionsTest.kt
     │   └── testutil/
     │       └── TestRouteContext.kt
-    ├── jvmMain/                     # JVM 平台 (待实现)
-    ├── androidMain/
-    │   └── AndroidManifest.xml
-    └── iosMain/                     # iOS 平台 (待实现)
+    ├── iosMain/kotlin/com/iap/router/
+    │   └── platform/
+    │       └── PlatformPage.kt     # IOSPageCreator + 扩展函数
+    ├── iosTest/kotlin/com/iap/router/
+    │   └── platform/
+    │       └── IOSPageRegistrationTest.kt  # iOS 注册 API 测试
+    ├── androidMain/kotlin/com/iap/router/
+    │   └── platform/
+    │       └── PlatformPage.kt     # AndroidPageCreator + 扩展函数
+    └── androidUnitTest/kotlin/com/iap/router/
+        └── platform/
+            └── AndroidPageRegistrationTest.kt  # Android 注册 API 测试
 ```
 
 ---
@@ -364,89 +371,113 @@ interface Router {
 ### 4.2 路由注册
 
 ```kotlin
-// commonMain
+// ==================== commonMain ====================
 
 /**
- * 平台页面基类（类型安全）
- * iOS: UIViewController
- * Android: Activity
+ * 平台页面创建器接口（标记接口）
+ * 各平台实现自己的 Creator 类
  */
-expect abstract class PlatformPage
+interface PlatformPageCreator
 
 /**
- * 页面构建器接口（类型安全）
+ * 页面目标：封装平台特定的创建器
  */
-fun interface PageBuilder {
-    fun build(params: Map<String, Any?>): PlatformPage
-}
+data class PageTarget(
+    val creator: PlatformPageCreator
+)
 
 /**
- * 页面目标：封装 builder 或 class 两种注册方式
+ * 路由注册接口（核心）
  */
-sealed class PageTarget {
-    data class Builder(val builder: PageBuilder) : PageTarget()
-    data class ClassRef(val pageClass: KClass<out PlatformPage>) : PageTarget()
-}
-
 interface RouteRegistry {
-    /**
-     * 注册页面路由（通过 builder，类型安全）
-     * @param pattern 路由模式，如 "order/detail/:orderId"
-     * @param builder 页面构建器，返回类型限制为 PlatformPage
-     * @param fallback 可选的降级配置
-     */
-    fun registerPage(
-        pattern: String,
-        builder: PageBuilder,
-        fallback: FallbackConfig? = null
-    )
-
-    /**
-     * 注册页面路由（通过 class，类型安全）
-     * @param pattern 路由模式
-     * @param pageClass 页面类，必须是 PlatformPage 子类
-     * @param fallback 可选的降级配置
-     */
-    fun <T : PlatformPage> registerPage(
-        pattern: String,
-        pageClass: KClass<T>,
-        fallback: FallbackConfig? = null
-    )
-
-    /**
-     * 注册 Action 路由
-     * @param actionName Action 名称
-     * @param handler Action 处理器
-     */
+    fun registerPage(pattern: String, config: PageRouteConfig)
     fun registerAction(actionName: String, handler: ActionHandler)
-
-    /**
-     * 批量注册
-     */
+    fun registerAction(actionName: String, config: ActionRouteConfig, handler: ActionHandler)
     fun registerAll(routes: List<RouteDefinition>)
+    fun isRegistered(pattern: String): Boolean
+    fun unregisterPage(pattern: String): Boolean
+    fun unregisterAction(actionName: String): Boolean
+    val routeTable: RouteTable
 }
 
 data class PageRouteConfig(
-    val target: PageTarget,                   // 页面目标（builder 或 class）
-    val pageId: String? = null,               // 页面业务标识符（可选，默认使用 pattern）
-    val fallback: FallbackConfig? = null      // 单路由降级配置
+    val target: PageTarget,
+    val pageId: String? = null,
+    val fallback: FallbackConfig? = null
+)
+
+// ==================== iosMain ====================
+
+/**
+ * iOS 页面创建器
+ */
+class IOSPageCreator(
+    val factory: (Map<String, Any?>) -> UIViewController
+) : PlatformPageCreator {
+    fun createViewController(params: Map<String, Any?>): UIViewController
+}
+
+// iOS 扩展函数
+fun RouteRegistry.registerPage(
+    pattern: String,
+    factory: (Map<String, Any?>) -> UIViewController
+)
+
+// ==================== androidMain ====================
+
+/**
+ * Android 页面创建器
+ */
+class AndroidPageCreator : PlatformPageCreator {
+    val intentFactory: ((Context, Map<String, Any?>) -> Intent)?
+    val activityClass: KClass<out Activity>?
+
+    constructor(intentFactory: (Context, Map<String, Any?>) -> Intent)
+    constructor(activityClass: KClass<out Activity>)
+
+    fun createIntent(context: Context, params: Map<String, Any?>): Intent
+}
+
+// Android 扩展函数
+fun RouteRegistry.registerPage(pattern: String, activityClass: KClass<out Activity>)
+fun RouteRegistry.registerPage(pattern: String, intentFactory: (Context, Map<String, Any?>) -> Intent)
+inline fun <reified T : Activity> RouteRegistry.registerPage(pattern: String, fallback: FallbackConfig? = null)
+```
+
+**使用示例（iOS Swift）：**
+```swift
+// 通过工厂函数注册
+registry.registerPage(pattern: "order/detail/:orderId") { params in
+    OrderDetailViewController(params: params)
+}
+
+// 带降级配置
+registry.registerPage(
+    pattern: "payment/newFeature",
+    fallback: FallbackConfig(...),
+    factory: { params in PaymentNewFeatureVC() }
 )
 ```
 
-**使用示例（Kotlin）：**
+**使用示例（Android Kotlin）：**
 ```kotlin
-// 方式1：通过 builder 注册（类型安全）
-routeRegistry.registerPage("order/detail/:orderId", PageBuilder { params ->
-    OrderDetailViewController(params)  // iOS 必须返回 UIViewController
-})
+// 方式1：通过 Activity KClass 注册
+registry.registerPage("order/detail/:orderId", OrderDetailActivity::class)
 
-// 方式2：通过 class 注册
-routeRegistry.registerPage("account/settings", AccountSettingsActivity::class)
+// 方式2：通过 reified 类型参数
+registry.registerPage<OrderDetailActivity>("order/detail/:orderId")
 
-// 方式3：带降级配置
-routeRegistry.registerPage(
+// 方式3：通过 Intent 工厂函数
+registry.registerPage("order/detail/:orderId") { context, params ->
+    Intent(context, OrderDetailActivity::class.java).apply {
+        putExtra("orderId", params["orderId"] as? String)
+    }
+}
+
+// 方式4：带降级配置
+registry.registerPage(
     pattern = "payment/newFeature",
-    builder = PageBuilder { PaymentNewFeatureVC() },
+    activityClass = PaymentNewFeatureActivity::class,
     fallback = FallbackConfig(...)
 )
 ```
@@ -888,12 +919,12 @@ class OrderDetailParams(params: Map<String, Any?>) {
 | 技术点 | 选型 | 说明 |
 |--------|------|------|
 | KMP 版本 | 2.2.21 | 按团队要求 |
-| 协程 | kotlinx.coroutines 1.8.1 | 异步拦截器支持 |
-| URL 编解码 | ktor-http 3.0.3 | 跨平台 URL 编解码 |
+| 协程 | kotlinx.coroutines 1.10.2 | 异步拦截器支持 |
+| URL 编解码 | ktor-http 3.2.3 | 跨平台 URL 编解码 |
 | 序列化 | kotlinx.serialization | 参数序列化（可选） |
 | 测试 | kotlin.test | 跨平台单元测试 |
 | 构建 | Gradle 8.x | 配套 KMP 2.2.21 |
-| Android | AGP 8.2.2 | Android Gradle Plugin |
+| Android | AGP 8.10.0 | Android Gradle Plugin |
 
 ---
 
@@ -940,9 +971,9 @@ Request → GlobalInterceptor(priority=10)
 
 ---
 
-*文档版本：v1.6*
+*文档版本：v1.7*
 *创建日期：2025-01-19*
-*最后更新：2026-01-23*
+*最后更新：2026-01-25*
 
 ---
 
@@ -950,6 +981,7 @@ Request → GlobalInterceptor(priority=10)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v1.7 | 2026-01-25 | 平台注册 API 完全分离：commonMain 只定义 PlatformPageCreator 接口和 PageTarget；iosMain 提供 IOSPageCreator + 工厂函数注册；androidMain 提供 AndroidPageCreator + KClass/Intent 注册；删除 jvmMain；移除 Synchronization（所有操作约定主线程执行）；新增 iosTest 和 androidUnitTest 测试平台注册 API |
 | v1.6 | 2026-01-23 | 统一路由注册 API：新增类型安全的 PlatformPage (expect/actual)、PageBuilder、PageTarget；支持 builder 和 class 两种注册方式；iOS 返回 UIViewController，Android 返回 Activity |
 | v1.5 | 2026-01-22 | 简化路由注册架构：pageId 改为可选（默认使用 pattern）；移除 PageFactory 接口（平台已有页面创建逻辑）；Navigator 直接调用底层路由 |
 | v1.4 | 2026-01-21 | Router.open 参数从 `extras` 改为 `params`；移除 NavigationOptions.extras |

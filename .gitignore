@@ -48,3 +48,5 @@ Carthage/
 # Environment
 .env
 .env.local
+
+kmp-router/.kotlin
