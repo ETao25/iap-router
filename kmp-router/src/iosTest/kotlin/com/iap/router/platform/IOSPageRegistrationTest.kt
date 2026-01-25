@@ -4,8 +4,6 @@ import com.iap.router.RouteRegistryImpl
 import com.iap.router.core.ProtocolParser
 import com.iap.router.core.RouteTable
 import com.iap.router.core.RouteLookupResult
-import com.iap.router.fallback.FallbackAction
-import com.iap.router.fallback.FallbackConfig
 import platform.UIKit.UIViewController
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -102,50 +100,6 @@ class IOSPageRegistrationTest {
         val vc = config.createViewController(mapOf("source" to "checkout"))
         assertNotNull(vc)
         assertIs<TestViewController>(vc)
-    }
-
-    // ==================== 降级配置测试 ====================
-
-    @Test
-    fun `registerPage with fallback should store fallback config`() {
-        val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
-
-        val fallback = FallbackConfig(
-            condition = { true },
-            action = FallbackAction.NavigateTo("iap://h5/payment")
-        )
-
-        registry.registerPage(
-            pattern = "payment/newFeature",
-            fallback = fallback
-        ) { TestViewController() }
-
-        val config = table.getPageConfig("payment/newFeature")
-        assertNotNull(config)
-        assertNotNull(config.fallback)
-    }
-
-    @Test
-    fun `registerPage with full config should work`() {
-        val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
-
-        val fallback = FallbackConfig(
-            condition = { false },
-            action = FallbackAction.Ignore
-        )
-
-        registry.registerPage(
-            pattern = "wallet/transfer",
-            pageId = "walletTransfer",
-            fallback = fallback
-        ) { TestViewController() }
-
-        val config = table.getPageConfig("wallet/transfer")
-        assertNotNull(config)
-        assertEquals("walletTransfer", config.pageId)
-        assertNotNull(config.fallback)
     }
 
     // ==================== 路由查找测试 ====================
@@ -263,10 +217,6 @@ class PageRouteDefinitionTest {
 
     private val paymentDefinition = PageRouteDefinition(
         pattern = "payment/checkout",
-        fallback = FallbackConfig(
-            condition = { true },
-            action = FallbackAction.NavigateTo("iap://h5/payment")
-        ),
         factory = { TestViewController(it) }
     )
 
@@ -300,18 +250,6 @@ class PageRouteDefinitionTest {
         val config = table.getPageConfig("order/detail/:orderId")
         assertNotNull(config)
         assertEquals("order/detail/:orderId", config.pageId)
-    }
-
-    @Test
-    fun `registerPage with PageRouteDefinition should include fallback`() {
-        val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
-
-        registry.registerPage(paymentDefinition)
-
-        val config = table.getPageConfig("payment/checkout")
-        assertNotNull(config)
-        assertNotNull(config.fallback)
     }
 
     @Test

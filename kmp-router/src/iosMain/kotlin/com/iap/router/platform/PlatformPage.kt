@@ -1,7 +1,6 @@
 package com.iap.router.platform
 
 import com.iap.router.RouteRegistry
-import com.iap.router.fallback.FallbackConfig
 import com.iap.router.model.PageRouteConfig
 import platform.UIKit.UIViewController
 
@@ -42,25 +41,7 @@ fun RouteRegistry.registerPage(
     val creator = IOSPageCreator(factory)
     val config = PageRouteConfig(
         target = PageTarget(creator),
-        pageId = null,
-        fallback = null
-    )
-    registerPage(pattern, config)
-}
-
-/**
- * 注册页面路由（通过工厂函数 + 降级配置）
- */
-fun RouteRegistry.registerPage(
-    pattern: String,
-    fallback: FallbackConfig?,
-    factory: (Map<String, Any?>) -> UIViewController
-) {
-    val creator = IOSPageCreator(factory)
-    val config = PageRouteConfig(
-        target = PageTarget(creator),
-        pageId = null,
-        fallback = fallback
+        pageId = null
     )
     registerPage(pattern, config)
 }
@@ -76,26 +57,7 @@ fun RouteRegistry.registerPage(
     val creator = IOSPageCreator(factory)
     val config = PageRouteConfig(
         target = PageTarget(creator),
-        pageId = pageId,
-        fallback = null
-    )
-    registerPage(pattern, config)
-}
-
-/**
- * 注册页面路由（完整配置）
- */
-fun RouteRegistry.registerPage(
-    pattern: String,
-    pageId: String?,
-    fallback: FallbackConfig?,
-    factory: (Map<String, Any?>) -> UIViewController
-) {
-    val creator = IOSPageCreator(factory)
-    val config = PageRouteConfig(
-        target = PageTarget(creator),
-        pageId = pageId,
-        fallback = fallback
+        pageId = pageId
     )
     registerPage(pattern, config)
 }
@@ -128,16 +90,12 @@ fun PageRouteConfig.createViewController(params: Map<String, Any?>): UIViewContr
  * protocol PageRoutable {
  *     static var pattern: String { get }
  *     static func createPage(params: [String: Any?]) -> UIViewController
- *     static var fallback: FallbackConfig? { get }
  * }
  *
  * extension PageRoutable {
- *     static var fallback: FallbackConfig? { nil }
- *
  *     static var routeDefinition: PageRouteDefinition {
  *         PageRouteDefinition(
  *             pattern: pattern,
- *             fallback: fallback,
  *             factory: { params in createPage(params: params) }
  *         )
  *     }
@@ -171,11 +129,6 @@ class PageRouteDefinition(
     val pattern: String,
 
     /**
-     * 降级配置（可选）
-     */
-    val fallback: FallbackConfig? = null,
-
-    /**
      * 页面创建工厂
      */
     val factory: (Map<String, Any?>) -> UIViewController
@@ -193,8 +146,7 @@ fun RouteRegistry.registerPage(definition: PageRouteDefinition) {
     val creator = IOSPageCreator(definition.factory)
     val config = PageRouteConfig(
         target = PageTarget(creator),
-        pageId = null,
-        fallback = definition.fallback
+        pageId = null
     )
     registerPage(definition.pattern, config)
 }

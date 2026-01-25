@@ -7,8 +7,6 @@ import com.iap.router.RouteRegistryImpl
 import com.iap.router.core.ProtocolParser
 import com.iap.router.core.RouteTable
 import com.iap.router.core.RouteLookupResult
-import com.iap.router.fallback.FallbackAction
-import com.iap.router.fallback.FallbackConfig
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -86,47 +84,6 @@ class AndroidPageRegistrationTest {
         val creator = config.getAndroidPageCreator()
         assertNotNull(creator)
         assertNotNull(creator.intentFactory)
-    }
-
-    // ==================== 降级配置测试 ====================
-
-    @Test
-    fun `registerPage with KClass and fallback should store fallback config`() {
-        val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
-
-        val fallback = FallbackConfig(
-            condition = { true },
-            action = FallbackAction.NavigateTo("iap://h5/payment")
-        )
-
-        registry.registerPage("payment/newFeature", TestActivity::class, fallback)
-
-        val config = table.getPageConfig("payment/newFeature")
-        assertNotNull(config)
-        assertNotNull(config.fallback)
-    }
-
-    @Test
-    fun `registerPage with intentFactory and fallback should work`() {
-        val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
-
-        val fallback = FallbackConfig(
-            condition = { false },
-            action = FallbackAction.Ignore
-        )
-
-        registry.registerPage(
-            pattern = "wallet/transfer",
-            fallback = fallback
-        ) { context, params ->
-            Intent(context, TestActivity::class.java)
-        }
-
-        val config = table.getPageConfig("wallet/transfer")
-        assertNotNull(config)
-        assertNotNull(config.fallback)
     }
 
     // ==================== 路由查找测试 ====================
@@ -230,23 +187,6 @@ class AndroidPageRegistrationTest {
         assertNotNull(creator)
         assertEquals(TestActivity::class, creator.activityClass)
     }
-
-    @Test
-    fun `registerPage with reified type and fallback should work`() {
-        val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
-
-        val fallback = FallbackConfig(
-            condition = { true },
-            action = FallbackAction.Ignore
-        )
-
-        registry.registerPage<TestActivity>("payment/new", fallback)
-
-        val config = table.getPageConfig("payment/new")
-        assertNotNull(config)
-        assertNotNull(config.fallback)
-    }
 }
 
 // ==================== 测试辅助类 ====================
@@ -276,25 +216,6 @@ class OrderDetailActivity : Activity() {
                 putExtra("orderId", params["orderId"] as? String)
             }
         }
-    }
-}
-
-/**
- * 带降级配置的测试 Activity
- */
-class PaymentActivity : Activity() {
-    companion object : PageRouteInfo {
-        override val pattern = "payment/checkout"
-
-        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
-            return Intent(context, PaymentActivity::class.java)
-        }
-
-        override val fallback: FallbackConfig
-            get() = FallbackConfig(
-                condition = { true },
-                action = FallbackAction.NavigateTo("iap://h5/payment")
-            )
     }
 }
 
@@ -343,18 +264,6 @@ class PageRouteInfoRegistrationTest {
     }
 
     @Test
-    fun `registerPage with PageRouteInfo should include fallback`() {
-        val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
-
-        registry.registerPage(PaymentActivity)
-
-        val config = table.getPageConfig("payment/checkout")
-        assertNotNull(config)
-        assertNotNull(config.fallback)
-    }
-
-    @Test
     fun `registerPages should batch register multiple routes`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
@@ -362,13 +271,11 @@ class PageRouteInfoRegistrationTest {
         // 批量注册
         registry.registerPages(
             OrderDetailActivity,
-            PaymentActivity,
             AccountSettingsActivity
         )
 
-        assertEquals(3, table.size())
+        assertEquals(2, table.size())
         assertTrue(table.contains("order/detail/:orderId"))
-        assertTrue(table.contains("payment/checkout"))
         assertTrue(table.contains("account/settings"))
     }
 

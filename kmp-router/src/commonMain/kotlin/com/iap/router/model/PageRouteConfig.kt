@@ -1,6 +1,5 @@
 package com.iap.router.model
 
-import com.iap.router.fallback.FallbackConfig
 import com.iap.router.platform.PageTarget
 
 /**
@@ -17,12 +16,7 @@ data class PageRouteConfig(
      * 用途：埋点、日志中的页面标识
      * 如果不指定，默认使用注册时的 pattern
      */
-    val pageId: String? = null,
-
-    /**
-     * 单路由降级配置
-     */
-    val fallback: FallbackConfig? = null
+    val pageId: String? = null
 )
 
 /**

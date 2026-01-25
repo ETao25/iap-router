@@ -402,8 +402,7 @@ interface RouteRegistry {
 
 data class PageRouteConfig(
     val target: PageTarget,
-    val pageId: String? = null,
-    val fallback: FallbackConfig? = null
+    val pageId: String? = null
 )
 
 // ==================== iosMain ====================
@@ -441,7 +440,7 @@ class AndroidPageCreator : PlatformPageCreator {
 // Android 扩展函数
 fun RouteRegistry.registerPage(pattern: String, activityClass: KClass<out Activity>)
 fun RouteRegistry.registerPage(pattern: String, intentFactory: (Context, Map<String, Any?>) -> Intent)
-inline fun <reified T : Activity> RouteRegistry.registerPage(pattern: String, fallback: FallbackConfig? = null)
+inline fun <reified T : Activity> RouteRegistry.registerPage(pattern: String)
 
 // ==================== 声明式路由注册 ====================
 
@@ -449,8 +448,6 @@ inline fun <reified T : Activity> RouteRegistry.registerPage(pattern: String, fa
 interface PageRouteInfo {
     val pattern: String
     fun createIntent(context: Context, params: Map<String, Any?>): Intent
-    val fallback: FallbackConfig?
-        get() = null
 }
 
 fun RouteRegistry.registerPage(info: PageRouteInfo)
@@ -459,7 +456,6 @@ fun RouteRegistry.registerPages(vararg infos: PageRouteInfo)
 // iOS: PageRouteDefinition 类（供 Swift 使用）
 class PageRouteDefinition(
     val pattern: String,
-    val fallback: FallbackConfig? = null,
     val factory: (Map<String, Any?>) -> UIViewController
 )
 
@@ -474,29 +470,18 @@ registry.registerPage(pattern: "order/detail/:orderId") { params in
     OrderDetailViewController(params: params)
 }
 
-// 带降级配置
-registry.registerPage(
-    pattern: "payment/newFeature",
-    fallback: FallbackConfig(...),
-    factory: { params in PaymentNewFeatureVC() }
-)
-
 // ==================== 方式2：声明式路由注册（推荐）====================
 
 // 1. 定义 Swift 协议
 protocol PageRoutable {
     static var pattern: String { get }
     static func createPage(params: [String: Any?]) -> UIViewController
-    static var fallback: FallbackConfig? { get }
 }
 
 extension PageRoutable {
-    static var fallback: FallbackConfig? { nil }
-
     static var routeDefinition: PageRouteDefinition {
         PageRouteDefinition(
             pattern: pattern,
-            fallback: fallback,
             factory: { params in createPage(params: params) }
         )
     }
@@ -513,12 +498,6 @@ class OrderDetailViewController: UIViewController, PageRoutable {
 
 class PaymentViewController: UIViewController, PageRoutable {
     static var pattern: String { "payment/checkout" }
-    static var fallback: FallbackConfig? {
-        FallbackConfig(
-            condition: { true },
-            action: FallbackAction.NavigateTo("iap://h5/payment")
-        )
-    }
 
     static func createPage(params: [String: Any?]) -> UIViewController {
         PaymentViewController()
@@ -563,14 +542,7 @@ registry.registerPage("order/detail/:orderId") { context, params ->
     }
 }
 
-// 方式4：带降级配置
-registry.registerPage(
-    pattern = "payment/newFeature",
-    activityClass = PaymentNewFeatureActivity::class,
-    fallback = FallbackConfig(...)
-)
-
-// ==================== 方式5：声明式路由注册（推荐）====================
+// ==================== 方式4：声明式路由注册（推荐）====================
 
 // 1. Activity 的 companion object 实现 PageRouteInfo 接口
 class OrderDetailActivity : Activity() {
@@ -592,13 +564,6 @@ class PaymentActivity : Activity() {
         override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
             return Intent(context, PaymentActivity::class.java)
         }
-
-        // 可选：降级配置
-        override val fallback: FallbackConfig
-            get() = FallbackConfig(
-                condition = { true },
-                action = FallbackAction.NavigateTo("iap://h5/payment")
-            )
     }
 }
 
@@ -823,7 +788,37 @@ data class RouteEvent(
 
 ## 五、降级策略
 
-### 5.1 全局 Fallback
+### 5.1 FallbackManager（推荐）
+
+使用 `FallbackManager` 统一管理全局降级和基于 pattern 的降级规则：
+
+```kotlin
+val fallbackManager = FallbackManager()
+
+// 设置全局降级（路由未找到时）
+fallbackManager.setGlobalFallback(FallbackAction.NavigateTo("iap://error/404"))
+
+// 设置全局错误降级
+fallbackManager.setGlobalErrorFallback(FallbackAction.ShowError("Something went wrong"))
+
+// 设置特定 pattern 的降级（支持通配符）
+fallbackManager.addPatternFallback("user/*", FallbackAction.NavigateTo("iap://login"))
+fallbackManager.addPatternFallback("payment/*", FallbackAction.NavigateTo("iap://h5/payment"))
+
+// 带条件的 pattern 降级
+fallbackManager.addPatternFallback(
+    pattern = "vip/*",
+    condition = { !isVipUser() },
+    action = FallbackAction.NavigateTo("iap://vip/upgrade")
+)
+
+// 注册到 Router
+router.setFallbackHandler(fallbackManager)
+```
+
+### 5.2 FallbackHandler 接口
+
+如果需要更灵活的降级逻辑，可以直接实现 `FallbackHandler` 接口：
 
 ```kotlin
 router.setFallbackHandler(object : FallbackHandler {
@@ -836,28 +831,17 @@ router.setFallbackHandler(object : FallbackHandler {
         return FallbackAction.ShowError(error.message ?: "Unknown error")
     }
 })
+```
 
+### 5.3 FallbackAction 类型
+
+```kotlin
 sealed class FallbackAction {
     data class NavigateTo(val url: String) : FallbackAction()
     data class ShowError(val message: String) : FallbackAction()
-    object Ignore : FallbackAction()
+    data object Ignore : FallbackAction()
     data class Custom(val handler: () -> Unit) : FallbackAction()
 }
-```
-
-### 5.2 单路由降级
-
-```kotlin
-routeRegistry.registerPage(
-    pattern = "payment/newFeature",
-    config = PageRouteConfig(
-        pageId = "paymentNewFeature",
-        fallback = FallbackConfig(
-            condition = { appVersion < "5.0.0" },  // 版本判断
-            action = FallbackAction.NavigateTo("iap://h5/payment/newFeature")
-        )
-    )
-)
 ```
 
 ---
@@ -1103,7 +1087,7 @@ Request → GlobalInterceptor(priority=10)
 
 ---
 
-*文档版本：v1.7*
+*文档版本：v1.8*
 *创建日期：2025-01-19*
 *最后更新：2026-01-25*
 
@@ -1113,6 +1097,7 @@ Request → GlobalInterceptor(priority=10)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
+| v1.8 | 2026-01-25 | 简化降级机制：移除 per-page fallback（PageRouteConfig、PageRouteInfo、PageRouteDefinition 不再包含 fallback）；新增 FallbackManager 支持全局降级和基于 pattern 的降级规则（如 user/* 可统一配置降级）；删除 FallbackConfig 类 |
 | v1.7 | 2026-01-25 | 平台注册 API 完全分离：commonMain 只定义 PlatformPageCreator 接口和 PageTarget；iosMain 提供 IOSPageCreator + 工厂函数注册 + PageRouteDefinition 声明式注册；androidMain 提供 AndroidPageCreator + KClass/Intent 注册 + PageRouteInfo 声明式注册；删除 jvmMain；移除 Synchronization（所有操作约定主线程执行）；新增 iosTest 和 androidUnitTest 测试平台注册 API |
 | v1.6 | 2026-01-23 | 统一路由注册 API：新增类型安全的 PlatformPage (expect/actual)、PageBuilder、PageTarget；支持 builder 和 class 两种注册方式；iOS 返回 UIViewController，Android 返回 Activity |
 | v1.5 | 2026-01-22 | 简化路由注册架构：pageId 改为可选（默认使用 pattern）；移除 PageFactory 接口（平台已有页面创建逻辑）；Navigator 直接调用底层路由 |

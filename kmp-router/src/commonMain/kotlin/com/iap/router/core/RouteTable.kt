@@ -1,6 +1,5 @@
 package com.iap.router.core
 
-import com.iap.router.fallback.FallbackConfig
 import com.iap.router.model.ActionRouteConfig
 import com.iap.router.model.PageRouteConfig
 import com.iap.router.model.ParsedRoute

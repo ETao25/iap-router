@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import com.iap.router.RouteRegistry
-import com.iap.router.fallback.FallbackConfig
 import com.iap.router.model.PageRouteConfig
 import kotlin.reflect.KClass
 
@@ -84,25 +83,7 @@ fun RouteRegistry.registerPage(
     val creator = AndroidPageCreator(activityClass)
     val config = PageRouteConfig(
         target = PageTarget(creator),
-        pageId = null,
-        fallback = null
-    )
-    registerPage(pattern, config)
-}
-
-/**
- * 注册页面路由（通过 Activity KClass + 降级配置）
- */
-fun RouteRegistry.registerPage(
-    pattern: String,
-    activityClass: KClass<out Activity>,
-    fallback: FallbackConfig?
-) {
-    val creator = AndroidPageCreator(activityClass)
-    val config = PageRouteConfig(
-        target = PageTarget(creator),
-        pageId = null,
-        fallback = fallback
+        pageId = null
     )
     registerPage(pattern, config)
 }
@@ -125,25 +106,7 @@ fun RouteRegistry.registerPage(
     val creator = AndroidPageCreator(intentFactory)
     val config = PageRouteConfig(
         target = PageTarget(creator),
-        pageId = null,
-        fallback = null
-    )
-    registerPage(pattern, config)
-}
-
-/**
- * 注册页面路由（通过 Intent 工厂函数 + 降级配置）
- */
-fun RouteRegistry.registerPage(
-    pattern: String,
-    fallback: FallbackConfig?,
-    intentFactory: (Context, Map<String, Any?>) -> Intent
-) {
-    val creator = AndroidPageCreator(intentFactory)
-    val config = PageRouteConfig(
-        target = PageTarget(creator),
-        pageId = null,
-        fallback = fallback
+        pageId = null
     )
     registerPage(pattern, config)
 }
@@ -155,11 +118,8 @@ fun RouteRegistry.registerPage(
  * registry.registerPage<OrderDetailActivity>("order/detail/:orderId")
  * ```
  */
-inline fun <reified T : Activity> RouteRegistry.registerPage(
-    pattern: String,
-    fallback: FallbackConfig? = null
-) {
-    registerPage(pattern, T::class, fallback)
+inline fun <reified T : Activity> RouteRegistry.registerPage(pattern: String) {
+    registerPage(pattern, T::class)
 }
 
 // ==================== 辅助函数 ====================
@@ -210,12 +170,6 @@ interface PageRouteInfo {
      * 创建 Intent
      */
     fun createIntent(context: Context, params: Map<String, Any?>): Intent
-
-    /**
-     * 降级配置（可选）
-     */
-    val fallback: FallbackConfig?
-        get() = null
 }
 
 /**
@@ -233,8 +187,7 @@ fun RouteRegistry.registerPage(info: PageRouteInfo) {
     }
     val config = PageRouteConfig(
         target = PageTarget(creator),
-        pageId = null,
-        fallback = info.fallback
+        pageId = null
     )
     registerPage(info.pattern, config)
 }
