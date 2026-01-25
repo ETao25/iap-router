@@ -177,3 +177,80 @@ fun PageRouteConfig.getAndroidPageCreator(): AndroidPageCreator? {
 fun PageRouteConfig.createIntent(context: Context, params: Map<String, Any?>): Intent? {
     return getAndroidPageCreator()?.createIntent(context, params)
 }
+
+// ==================== 声明式路由注册 ====================
+
+/**
+ * 页面路由信息接口
+ * Activity 的 companion object 实现此接口，即可通过 registerPage(Activity) 一行代码注册
+ *
+ * 使用示例:
+ * ```kotlin
+ * class OrderDetailActivity : Activity() {
+ *     companion object : PageRouteInfo {
+ *         override val pattern = "order/detail/:orderId"
+ *         override fun createIntent(context: Context, params: Map<String, Any?>) =
+ *             Intent(context, OrderDetailActivity::class.java).apply {
+ *                 putExtra("orderId", params["orderId"] as? String)
+ *             }
+ *     }
+ * }
+ *
+ * // 注册（一行）
+ * registry.registerPage(OrderDetailActivity)
+ * ```
+ */
+interface PageRouteInfo {
+    /**
+     * 路由模式
+     */
+    val pattern: String
+
+    /**
+     * 创建 Intent
+     */
+    fun createIntent(context: Context, params: Map<String, Any?>): Intent
+
+    /**
+     * 降级配置（可选）
+     */
+    val fallback: FallbackConfig?
+        get() = null
+}
+
+/**
+ * 注册页面路由（通过 PageRouteInfo）
+ * 用于 Activity companion object 实现 PageRouteInfo 的场景
+ *
+ * 使用示例:
+ * ```kotlin
+ * registry.registerPage(OrderDetailActivity)
+ * ```
+ */
+fun RouteRegistry.registerPage(info: PageRouteInfo) {
+    val creator = AndroidPageCreator { context, params ->
+        info.createIntent(context, params)
+    }
+    val config = PageRouteConfig(
+        target = PageTarget(creator),
+        pageId = null,
+        fallback = info.fallback
+    )
+    registerPage(info.pattern, config)
+}
+
+/**
+ * 批量注册页面路由
+ *
+ * 使用示例:
+ * ```kotlin
+ * registry.registerPages(
+ *     OrderDetailActivity,
+ *     AccountSettingsActivity,
+ *     PaymentActivity
+ * )
+ * ```
+ */
+fun RouteRegistry.registerPages(vararg infos: PageRouteInfo) {
+    infos.forEach { registerPage(it) }
+}

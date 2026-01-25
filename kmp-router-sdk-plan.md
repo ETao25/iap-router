@@ -442,11 +442,34 @@ class AndroidPageCreator : PlatformPageCreator {
 fun RouteRegistry.registerPage(pattern: String, activityClass: KClass<out Activity>)
 fun RouteRegistry.registerPage(pattern: String, intentFactory: (Context, Map<String, Any?>) -> Intent)
 inline fun <reified T : Activity> RouteRegistry.registerPage(pattern: String, fallback: FallbackConfig? = null)
+
+// ==================== 声明式路由注册 ====================
+
+// Android: PageRouteInfo 接口（用于 companion object 实现）
+interface PageRouteInfo {
+    val pattern: String
+    fun createIntent(context: Context, params: Map<String, Any?>): Intent
+    val fallback: FallbackConfig?
+        get() = null
+}
+
+fun RouteRegistry.registerPage(info: PageRouteInfo)
+fun RouteRegistry.registerPages(vararg infos: PageRouteInfo)
+
+// iOS: PageRouteDefinition 类（供 Swift 使用）
+class PageRouteDefinition(
+    val pattern: String,
+    val fallback: FallbackConfig? = null,
+    val factory: (Map<String, Any?>) -> UIViewController
+)
+
+fun RouteRegistry.registerPage(definition: PageRouteDefinition)
+fun RouteRegistry.registerPages(definitions: List<PageRouteDefinition>)
 ```
 
 **使用示例（iOS Swift）：**
 ```swift
-// 通过工厂函数注册
+// ==================== 方式1：通过工厂函数注册 ====================
 registry.registerPage(pattern: "order/detail/:orderId") { params in
     OrderDetailViewController(params: params)
 }
@@ -457,10 +480,76 @@ registry.registerPage(
     fallback: FallbackConfig(...),
     factory: { params in PaymentNewFeatureVC() }
 )
+
+// ==================== 方式2：声明式路由注册（推荐）====================
+
+// 1. 定义 Swift 协议
+protocol PageRoutable {
+    static var pattern: String { get }
+    static func createPage(params: [String: Any?]) -> UIViewController
+    static var fallback: FallbackConfig? { get }
+}
+
+extension PageRoutable {
+    static var fallback: FallbackConfig? { nil }
+
+    static var routeDefinition: PageRouteDefinition {
+        PageRouteDefinition(
+            pattern: pattern,
+            fallback: fallback,
+            factory: { params in createPage(params: params) }
+        )
+    }
+}
+
+// 2. ViewController 实现协议
+class OrderDetailViewController: UIViewController, PageRoutable {
+    static var pattern: String { "order/detail/:orderId" }
+
+    static func createPage(params: [String: Any?]) -> UIViewController {
+        OrderDetailViewController(orderId: params["orderId"] as? String)
+    }
+}
+
+class PaymentViewController: UIViewController, PageRoutable {
+    static var pattern: String { "payment/checkout" }
+    static var fallback: FallbackConfig? {
+        FallbackConfig(
+            condition: { true },
+            action: FallbackAction.NavigateTo("iap://h5/payment")
+        )
+    }
+
+    static func createPage(params: [String: Any?]) -> UIViewController {
+        PaymentViewController()
+    }
+}
+
+// 3. 注册（一行）
+registry.registerPage(definition: OrderDetailViewController.routeDefinition)
+registry.registerPage(definition: PaymentViewController.routeDefinition)
+
+// 或者批量注册
+registry.registerPages(definitions: [
+    OrderDetailViewController.routeDefinition,
+    PaymentViewController.routeDefinition,
+    AccountSettingsViewController.routeDefinition
+])
+
+// 4. 可选：扩展 RouteRegistry 进一步简化
+extension RouteRegistry {
+    func registerPage<T: PageRoutable>(_ type: T.Type) {
+        registerPage(definition: type.routeDefinition)
+    }
+}
+// 使用：
+registry.registerPage(OrderDetailViewController.self)
 ```
 
 **使用示例（Android Kotlin）：**
 ```kotlin
+// ==================== 方式1-3：基础注册方式 ====================
+
 // 方式1：通过 Activity KClass 注册
 registry.registerPage("order/detail/:orderId", OrderDetailActivity::class)
 
@@ -479,6 +568,49 @@ registry.registerPage(
     pattern = "payment/newFeature",
     activityClass = PaymentNewFeatureActivity::class,
     fallback = FallbackConfig(...)
+)
+
+// ==================== 方式5：声明式路由注册（推荐）====================
+
+// 1. Activity 的 companion object 实现 PageRouteInfo 接口
+class OrderDetailActivity : Activity() {
+    companion object : PageRouteInfo {
+        override val pattern = "order/detail/:orderId"
+
+        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
+            return Intent(context, OrderDetailActivity::class.java).apply {
+                putExtra("orderId", params["orderId"] as? String)
+            }
+        }
+    }
+}
+
+class PaymentActivity : Activity() {
+    companion object : PageRouteInfo {
+        override val pattern = "payment/checkout"
+
+        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
+            return Intent(context, PaymentActivity::class.java)
+        }
+
+        // 可选：降级配置
+        override val fallback: FallbackConfig
+            get() = FallbackConfig(
+                condition = { true },
+                action = FallbackAction.NavigateTo("iap://h5/payment")
+            )
+    }
+}
+
+// 2. 注册（一行）
+registry.registerPage(OrderDetailActivity)
+registry.registerPage(PaymentActivity)
+
+// 或者批量注册
+registry.registerPages(
+    OrderDetailActivity,
+    PaymentActivity,
+    AccountSettingsActivity
 )
 ```
 
@@ -981,7 +1113,7 @@ Request → GlobalInterceptor(priority=10)
 
 | 版本 | 日期 | 变更内容 |
 |------|------|----------|
-| v1.7 | 2026-01-25 | 平台注册 API 完全分离：commonMain 只定义 PlatformPageCreator 接口和 PageTarget；iosMain 提供 IOSPageCreator + 工厂函数注册；androidMain 提供 AndroidPageCreator + KClass/Intent 注册；删除 jvmMain；移除 Synchronization（所有操作约定主线程执行）；新增 iosTest 和 androidUnitTest 测试平台注册 API |
+| v1.7 | 2026-01-25 | 平台注册 API 完全分离：commonMain 只定义 PlatformPageCreator 接口和 PageTarget；iosMain 提供 IOSPageCreator + 工厂函数注册 + PageRouteDefinition 声明式注册；androidMain 提供 AndroidPageCreator + KClass/Intent 注册 + PageRouteInfo 声明式注册；删除 jvmMain；移除 Synchronization（所有操作约定主线程执行）；新增 iosTest 和 androidUnitTest 测试平台注册 API |
 | v1.6 | 2026-01-23 | 统一路由注册 API：新增类型安全的 PlatformPage (expect/actual)、PageBuilder、PageTarget；支持 builder 和 class 两种注册方式；iOS 返回 UIViewController，Android 返回 Activity |
 | v1.5 | 2026-01-22 | 简化路由注册架构：pageId 改为可选（默认使用 pattern）；移除 PageFactory 接口（平台已有页面创建逻辑）；Navigator 直接调用底层路由 |
 | v1.4 | 2026-01-21 | Router.open 参数从 `extras` 改为 `params`；移除 NavigationOptions.extras |

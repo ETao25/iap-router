@@ -260,3 +260,130 @@ class TestActivity : Activity()
  * 另一个测试用 Activity
  */
 class AnotherTestActivity : Activity()
+
+// ==================== PageRouteInfo 测试辅助类 ====================
+
+/**
+ * 实现 PageRouteInfo 的测试 Activity
+ * 演示声明式路由注册模式
+ */
+class OrderDetailActivity : Activity() {
+    companion object : PageRouteInfo {
+        override val pattern = "order/detail/:orderId"
+
+        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
+            return Intent(context, OrderDetailActivity::class.java).apply {
+                putExtra("orderId", params["orderId"] as? String)
+            }
+        }
+    }
+}
+
+/**
+ * 带降级配置的测试 Activity
+ */
+class PaymentActivity : Activity() {
+    companion object : PageRouteInfo {
+        override val pattern = "payment/checkout"
+
+        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
+            return Intent(context, PaymentActivity::class.java)
+        }
+
+        override val fallback: FallbackConfig
+            get() = FallbackConfig(
+                condition = { true },
+                action = FallbackAction.NavigateTo("iap://h5/payment")
+            )
+    }
+}
+
+/**
+ * 账户设置测试 Activity
+ */
+class AccountSettingsActivity : Activity() {
+    companion object : PageRouteInfo {
+        override val pattern = "account/settings"
+
+        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
+            return Intent(context, AccountSettingsActivity::class.java)
+        }
+    }
+}
+
+// ==================== PageRouteInfo 声明式注册测试 ====================
+
+class PageRouteInfoRegistrationTest {
+
+    @Test
+    fun `registerPage with PageRouteInfo should work`() {
+        val table = RouteTable()
+        val registry = RouteRegistryImpl(table)
+
+        // 通过 companion object 注册（一行）
+        registry.registerPage(OrderDetailActivity)
+
+        assertTrue(table.contains("order/detail/:orderId"))
+
+        val config = table.getPageConfig("order/detail/:orderId")
+        assertNotNull(config)
+        assertIs<AndroidPageCreator>(config.target.creator)
+    }
+
+    @Test
+    fun `registerPage with PageRouteInfo should use pattern from interface`() {
+        val table = RouteTable()
+        val registry = RouteRegistryImpl(table)
+
+        registry.registerPage(OrderDetailActivity)
+
+        val config = table.getPageConfig("order/detail/:orderId")
+        assertNotNull(config)
+        assertEquals("order/detail/:orderId", config.pageId)
+    }
+
+    @Test
+    fun `registerPage with PageRouteInfo should include fallback`() {
+        val table = RouteTable()
+        val registry = RouteRegistryImpl(table)
+
+        registry.registerPage(PaymentActivity)
+
+        val config = table.getPageConfig("payment/checkout")
+        assertNotNull(config)
+        assertNotNull(config.fallback)
+    }
+
+    @Test
+    fun `registerPages should batch register multiple routes`() {
+        val table = RouteTable()
+        val registry = RouteRegistryImpl(table)
+
+        // 批量注册
+        registry.registerPages(
+            OrderDetailActivity,
+            PaymentActivity,
+            AccountSettingsActivity
+        )
+
+        assertEquals(3, table.size())
+        assertTrue(table.contains("order/detail/:orderId"))
+        assertTrue(table.contains("payment/checkout"))
+        assertTrue(table.contains("account/settings"))
+    }
+
+    @Test
+    fun `lookup should find route registered via PageRouteInfo`() {
+        val table = RouteTable()
+        val registry = RouteRegistryImpl(table)
+
+        registry.registerPage(OrderDetailActivity)
+
+        val parsedRoute = ProtocolParser.parseOrNull("iap://order/detail/123")!!
+        val result = table.lookup(parsedRoute)
+
+        assertNotNull(result)
+        assertIs<RouteLookupResult.PageRoute>(result)
+        assertEquals("123", result.matchResult.pathParams["orderId"])
+    }
+}
