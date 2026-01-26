@@ -67,6 +67,60 @@ class AndroidPageCreator : PlatformPageCreator {
     }
 }
 
+// ==================== Android 专用扩展函数 ====================
+
+/**
+ * 注册页面路由（通过 Activity KClass）
+ *
+ * Kotlin 调用示例:
+ * ```kotlin
+ * registry.registerPage("order/detail/:orderId", OrderDetailActivity::class)
+ * ```
+ */
+fun RouteRegistry.registerPage(pattern: String, activityClass: KClass<out Activity>) {
+    val creator = AndroidPageCreator(activityClass)
+    val config = PageRouteConfig(
+        pattern = pattern,
+        target = PageTarget(creator),
+        pageId = null
+    )
+    registerPage(config)
+}
+
+/**
+ * 注册页面路由（通过 Intent 工厂函数）
+ *
+ * Kotlin 调用示例:
+ * ```kotlin
+ * registry.registerPage("order/detail/:orderId") { context, params ->
+ *     Intent(context, OrderDetailActivity::class.java).apply {
+ *         putExtra("orderId", params["orderId"] as? String)
+ *     }
+ * }
+ * ```
+ */
+fun RouteRegistry.registerPage(pattern: String, intentFactory: (Context, Map<String, Any?>) -> Intent) {
+    val creator = AndroidPageCreator(intentFactory)
+    val config = PageRouteConfig(
+        pattern = pattern,
+        target = PageTarget(creator),
+        pageId = null
+    )
+    registerPage(config)
+}
+
+/**
+ * 便捷方法：使用 reified 类型参数注册页面
+ *
+ * Kotlin 调用示例:
+ * ```kotlin
+ * registry.registerPage<OrderDetailActivity>("order/detail/:orderId")
+ * ```
+ */
+inline fun <reified T : Activity> RouteRegistry.registerPage(pattern: String) {
+    registerPage(pattern, T::class)
+}
+
 // ==================== 辅助函数 ====================
 
 /**

@@ -24,23 +24,27 @@ sealed class RouteDefinition {
 
 /**
  * 路由注册器
- * 平台特定的注册方法在各平台的 actual 实现中提供
+ * 平台特定的注册方法在各平台通过类扩展函数提供
  */
-expect open class RouteRegistry(routeTable: RouteTable) {
+open class RouteRegistry(
     val routeTable: RouteTable
-
+) {
     /**
      * 注册页面路由
      * @param config 页面路由配置（包含 pattern）
      */
-    fun registerPage(config: PageRouteConfig)
+    fun registerPage(config: PageRouteConfig) {
+        routeTable.registerPage(config)
+    }
 
     /**
      * 注册 Action 路由
      * @param actionName Action 名称
      * @param handler Action 处理器
      */
-    fun registerAction(actionName: String, handler: ActionHandler)
+    fun registerAction(actionName: String, handler: ActionHandler) {
+        registerAction(actionName, ActionRouteConfig(actionName), handler)
+    }
 
     /**
      * 注册 Action 路由（带配置）
@@ -48,25 +52,44 @@ expect open class RouteRegistry(routeTable: RouteTable) {
      * @param config Action 配置
      * @param handler Action 处理器
      */
-    fun registerAction(actionName: String, config: ActionRouteConfig, handler: ActionHandler)
+    fun registerAction(actionName: String, config: ActionRouteConfig, handler: ActionHandler) {
+        routeTable.registerAction(actionName, config, handler)
+    }
 
     /**
      * 批量注册路由
      */
-    fun registerAll(routes: List<RouteDefinition>)
+    fun registerAll(routes: List<RouteDefinition>) {
+        routes.forEach { definition ->
+            when (definition) {
+                is RouteDefinition.Page -> registerPage(definition.config)
+                is RouteDefinition.Action -> registerAction(
+                    definition.actionName,
+                    definition.config,
+                    definition.handler
+                )
+            }
+        }
+    }
 
     /**
      * 检查路由是否已注册
      */
-    fun isRegistered(pattern: String): Boolean
+    fun isRegistered(pattern: String): Boolean {
+        return routeTable.contains(pattern)
+    }
 
     /**
      * 移除页面路由
      */
-    fun unregisterPage(pattern: String): Boolean
+    fun unregisterPage(pattern: String): Boolean {
+        return routeTable.removePage(pattern)
+    }
 
     /**
      * 移除 Action 路由
      */
-    fun unregisterAction(actionName: String): Boolean
+    fun unregisterAction(actionName: String): Boolean {
+        return routeTable.removeAction(actionName)
+    }
 }

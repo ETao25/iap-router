@@ -1,5 +1,6 @@
 package com.iap.router.platform
 
+import com.iap.router.RouteRegistry
 import com.iap.router.model.PageRouteConfig
 import platform.UIKit.UIViewController
 
@@ -20,6 +21,48 @@ class IOSPageCreator(
     fun createViewController(params: Map<String, Any?>): UIViewController {
         return factory.invoke(params)
     }
+}
+
+// ==================== iOS 专用扩展函数 ====================
+
+/**
+ * 注册页面路由（通过工厂函数）
+ *
+ * Swift 调用示例:
+ * ```swift
+ * registry.registerPage(pattern: "order/detail/:orderId") { params in
+ *     OrderDetailViewController(params: params)
+ * }
+ * ```
+ */
+fun RouteRegistry.registerPage(
+    pattern: String,
+    factory: (Map<String, Any?>) -> UIViewController
+) {
+    val creator = IOSPageCreator(factory)
+    val config = PageRouteConfig(
+        pattern = pattern,
+        target = PageTarget(creator),
+        pageId = null
+    )
+    registerPage(config)
+}
+
+/**
+ * 注册页面路由（通过工厂函数 + 自定义 pageId）
+ */
+fun RouteRegistry.registerPage(
+    pattern: String,
+    pageId: String,
+    factory: (Map<String, Any?>) -> UIViewController
+) {
+    val creator = IOSPageCreator(factory)
+    val config = PageRouteConfig(
+        pattern = pattern,
+        target = PageTarget(creator),
+        pageId = pageId
+    )
+    registerPage(config)
 }
 
 // ==================== 辅助函数 ====================
