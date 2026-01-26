@@ -142,11 +142,15 @@ func showAlert(message: String) {
  在 AppDelegate 中调用：
 
  func application(_ application: UIApplication, didFinishLaunchingWithOptions...) {
-     // 获取 RouteRegistry 实例
-     let registry = KMPRouter.shared.registry
+     // 创建 Router 实例（通常作为单例使用）
+     let router = Router()
+
+     // 配置 iOS 平台组件
+     // 注意：setupIOSPlatform() 需要桥接实际的 iOS 导航 SDK
+     router.setupIOSPlatform()
 
      // 注册所有路由
-     RouteConfiguration.registerAllRoutes(registry: registry)
+     RouteConfiguration.registerAllRoutes(registry: router.registry)
 
      // ==================== 配置降级策略（使用 FallbackManager）====================
      // 注意：降级配置是基于 pattern 的，不是单页面维度的
@@ -154,14 +158,26 @@ func showAlert(message: String) {
      let fallbackManager = FallbackManager()
 
      // 设置全局降级（路由未找到时）
-     fallbackManager.setGlobalFallback(FallbackAction.navigateTo("iap://error/404"))
+     fallbackManager.setGlobalFallback(FallbackAction.NavigateTo(url: "iap://error/404"))
 
      // 设置基于 pattern 的降级规则
-     fallbackManager.addPatternFallback(pattern: "payment/*", action: FallbackAction.navigateTo("iap://h5/payment"))
-     fallbackManager.addPatternFallback(pattern: "user/*", action: FallbackAction.navigateTo("iap://login"))
+     fallbackManager.addPatternFallback(pattern: "payment/*", action: FallbackAction.NavigateTo(url: "iap://h5/payment"))
+     fallbackManager.addPatternFallback(pattern: "user/*", action: FallbackAction.NavigateTo(url: "iap://login"))
 
      // 注册到 Router
-     KMPRouter.shared.setFallbackHandler(fallbackManager)
+     router.fallbackHandler = fallbackManager
+
+     // 存储 router 实例供全局使用
+     AppRouter.shared = router
+ }
+*/
+
+// MARK: - 全局 Router 访问（示例）
+
+/*
+ // 简单的单例封装
+ class AppRouter {
+     static var shared: Router!
  }
 */
 
@@ -171,21 +187,35 @@ func showAlert(message: String) {
  跳转示例：
 
  // 简单跳转
- KMPRouter.shared.open("iap://order/detail/12345")
+ AppRouter.shared.open(url: "iap://order/detail/12345")
 
  // 带参数跳转
- KMPRouter.shared.open("iap://order/detail/12345?source=homepage")
+ AppRouter.shared.open(url: "iap://order/detail/12345?source=homepage")
 
  // 带额外参数（传递对象）
- KMPRouter.shared.open(
+ AppRouter.shared.open(
      url: "iap://order/detail/12345",
      params: ["viewModel": orderViewModel]
  )
 
  // FX 图表页
- KMPRouter.shared.open("iap://fx/USDCNY/chart?period=1d")
+ AppRouter.shared.open(url: "iap://fx/USDCNY/chart?period=1d")
 
  // Action 调用
- KMPRouter.shared.open("iap://action/showPopup?message=Hello")
- KMPRouter.shared.open("iap://action/copyText?text=复制内容")
+ AppRouter.shared.open(url: "iap://action/showPopup?message=Hello")
+ AppRouter.shared.open(url: "iap://action/copyText?text=复制内容")
+
+ // 检查是否可以打开
+ if AppRouter.shared.canOpen(url: "iap://order/detail/123") {
+     // 路由已注册
+ }
+
+ // 返回上一页
+ AppRouter.shared.pop()
+
+ // 返回到指定页面
+ AppRouter.shared.popTo(pageId: "order/list")
+
+ // 返回到根页面
+ AppRouter.shared.popToRoot()
 */
