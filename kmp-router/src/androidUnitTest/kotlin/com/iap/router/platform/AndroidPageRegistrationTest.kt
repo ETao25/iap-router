@@ -3,7 +3,7 @@ package com.iap.router.platform
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import com.iap.router.RouteRegistryImpl
+import com.iap.router.RouteRegistry
 import com.iap.router.core.ProtocolParser
 import com.iap.router.core.RouteTable
 import com.iap.router.core.RouteLookupResult
@@ -24,7 +24,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `registerPage with KClass should create AndroidPageCreator`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         // 通过 KClass 注册
         registry.registerPage("order/detail/:orderId", TestActivity::class)
@@ -39,7 +39,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `registerPage with KClass should store activityClass`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("account/settings", TestActivity::class)
 
@@ -54,7 +54,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `registerPage should use pattern as default pageId`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("account/settings", TestActivity::class)
 
@@ -68,7 +68,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `registerPage with intentFactory should create AndroidPageCreator`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("order/detail/:orderId") { context, params ->
             Intent(context, TestActivity::class.java).apply {
@@ -91,7 +91,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `lookup should find registered Android page route`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("order/detail/:orderId", TestActivity::class)
 
@@ -107,7 +107,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `lookup should extract multiple path params`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("user/:userId/order/:orderId", TestActivity::class)
 
@@ -123,7 +123,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `lookup should handle wildcard routes`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("payment/*", TestActivity::class)
 
@@ -140,7 +140,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `multiple page registrations should work`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("order/list", TestActivity::class)
         registry.registerPage("order/detail/:id", TestActivity::class)
@@ -157,7 +157,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `overwriting route should replace existing`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("order/detail", TestActivity::class)
         registry.registerPage("order/detail", AnotherTestActivity::class)
@@ -174,7 +174,7 @@ class AndroidPageRegistrationTest {
     @Test
     fun `registerPage with reified type should work`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage<TestActivity>("order/detail/:orderId")
 
@@ -201,14 +201,14 @@ class TestActivity : Activity()
  */
 class AnotherTestActivity : Activity()
 
-// ==================== PageRouteInfo 测试辅助类 ====================
+// ==================== PageRoutable 测试辅助类 ====================
 
 /**
- * 实现 PageRouteInfo 的测试 Activity
+ * 实现 PageRoutable 的测试 Activity
  * 演示声明式路由注册模式
  */
 class OrderDetailActivity : Activity() {
-    companion object : PageRouteInfo {
+    companion object : PageRoutable {
         override val pattern = "order/detail/:orderId"
 
         override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
@@ -223,7 +223,7 @@ class OrderDetailActivity : Activity() {
  * 账户设置测试 Activity
  */
 class AccountSettingsActivity : Activity() {
-    companion object : PageRouteInfo {
+    companion object : PageRoutable {
         override val pattern = "account/settings"
 
         override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
@@ -232,14 +232,14 @@ class AccountSettingsActivity : Activity() {
     }
 }
 
-// ==================== PageRouteInfo 声明式注册测试 ====================
+// ==================== PageRoutable 声明式注册测试 ====================
 
-class PageRouteInfoRegistrationTest {
+class PageRoutableRegistrationTest {
 
     @Test
-    fun `registerPage with PageRouteInfo should work`() {
+    fun `registerPage with PageRoutable should work`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         // 通过 companion object 注册（一行）
         registry.registerPage(OrderDetailActivity)
@@ -252,9 +252,9 @@ class PageRouteInfoRegistrationTest {
     }
 
     @Test
-    fun `registerPage with PageRouteInfo should use pattern from interface`() {
+    fun `registerPage with PageRoutable should use pattern from interface`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage(OrderDetailActivity)
 
@@ -266,7 +266,7 @@ class PageRouteInfoRegistrationTest {
     @Test
     fun `registerPages should batch register multiple routes`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         // 批量注册
         registry.registerPages(
@@ -280,9 +280,9 @@ class PageRouteInfoRegistrationTest {
     }
 
     @Test
-    fun `lookup should find route registered via PageRouteInfo`() {
+    fun `lookup should find route registered via PageRoutable`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage(OrderDetailActivity)
 

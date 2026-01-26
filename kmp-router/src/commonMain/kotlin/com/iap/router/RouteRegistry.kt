@@ -23,10 +23,12 @@ sealed class RouteDefinition {
 }
 
 /**
- * 路由注册接口（核心）
- * 平台特定的注册方法在 iosMain/androidMain 中通过扩展函数提供
+ * 路由注册器
+ * 平台特定的注册方法在各平台的 actual 实现中提供
  */
-interface RouteRegistry {
+expect open class RouteRegistry(routeTable: RouteTable) {
+    val routeTable: RouteTable
+
     /**
      * 注册页面路由
      * @param config 页面路由配置（包含 pattern）
@@ -67,54 +69,4 @@ interface RouteRegistry {
      * 移除 Action 路由
      */
     fun unregisterAction(actionName: String): Boolean
-
-    /**
-     * 获取内部路由表（供平台扩展使用）
-     */
-    val routeTable: RouteTable
-}
-
-/**
- * 路由注册实现
- */
-class RouteRegistryImpl(
-    override val routeTable: RouteTable
-) : RouteRegistry {
-
-    override fun registerPage(config: PageRouteConfig) {
-        routeTable.registerPage(config)
-    }
-
-    override fun registerAction(actionName: String, handler: ActionHandler) {
-        registerAction(actionName, ActionRouteConfig(actionName), handler)
-    }
-
-    override fun registerAction(actionName: String, config: ActionRouteConfig, handler: ActionHandler) {
-        routeTable.registerAction(actionName, config, handler)
-    }
-
-    override fun registerAll(routes: List<RouteDefinition>) {
-        routes.forEach { definition ->
-            when (definition) {
-                is RouteDefinition.Page -> registerPage(definition.config)
-                is RouteDefinition.Action -> registerAction(
-                    definition.actionName,
-                    definition.config,
-                    definition.handler
-                )
-            }
-        }
-    }
-
-    override fun isRegistered(pattern: String): Boolean {
-        return routeTable.contains(pattern)
-    }
-
-    override fun unregisterPage(pattern: String): Boolean {
-        return routeTable.removePage(pattern)
-    }
-
-    override fun unregisterAction(actionName: String): Boolean {
-        return routeTable.removeAction(actionName)
-    }
 }

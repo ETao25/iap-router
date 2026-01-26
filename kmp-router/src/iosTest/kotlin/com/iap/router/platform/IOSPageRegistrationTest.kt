@@ -1,6 +1,6 @@
 package com.iap.router.platform
 
-import com.iap.router.RouteRegistryImpl
+import com.iap.router.RouteRegistry
 import com.iap.router.core.ProtocolParser
 import com.iap.router.core.RouteTable
 import com.iap.router.core.RouteLookupResult
@@ -22,7 +22,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `registerPage with factory should create IOSPageCreator`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         // 通过工厂函数注册
         registry.registerPage("order/detail/:orderId") { params ->
@@ -39,7 +39,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `registerPage should use pattern as default pageId`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("account/settings") { TestViewController() }
 
@@ -51,7 +51,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `registerPage with custom pageId should store pageId`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage(
             pattern = "order/detail/:orderId",
@@ -68,7 +68,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `IOSPageCreator should create ViewController with params`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("fx/:pairId/chart") { params ->
             TestViewController(params)
@@ -88,7 +88,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `PageRouteConfig createViewController extension should work`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("payment/card") { params ->
             TestViewController(params)
@@ -107,7 +107,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `lookup should find registered iOS page route`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("order/detail/:orderId") { params ->
             TestViewController(params)
@@ -125,7 +125,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `lookup should extract multiple path params`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("user/:userId/order/:orderId") { params ->
             TestViewController(params)
@@ -143,7 +143,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `lookup should handle wildcard routes`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("payment/*") { params ->
             TestViewController(params)
@@ -162,7 +162,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `multiple page registrations should work`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("order/list") { TestViewController() }
         registry.registerPage("order/detail/:id") { TestViewController(it) }
@@ -179,7 +179,7 @@ class IOSPageRegistrationTest {
     @Test
     fun `overwriting route should replace existing`() {
         val table = RouteTable()
-        val registry = RouteRegistryImpl(table)
+        val registry = RouteRegistry(table)
 
         registry.registerPage("order/detail") { TestViewController(mapOf("version" to "v1")) }
         registry.registerPage("order/detail") { TestViewController(mapOf("version" to "v2")) }

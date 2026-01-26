@@ -53,6 +53,8 @@ protocol PageRoutable {
 /// 扩展 RouteRegistry 支持 PageRoutable 协议
 extension RouteRegistry {
     func registerPage<T: PageRoutable>(_ type: T.Type) {
+        // RouteRegistry 现在直接有 registerPage(pattern:factory:) 方法
+        // 这是类的实例方法，Swift 可以直接调用
         registerPage(pattern: T.pattern) { params in
             T.createPage(params: params)
         }
@@ -91,7 +93,9 @@ class RouteConfiguration {
 
     static func registerAllRoutes(registry: RouteRegistry) {
 
-        // ==================== 方式1：工厂函数注册（简单场景）====================
+        // ==================== 方式1：工厂函数注册（RouteRegistry 类方法）====================
+        // registerPage(pattern:factory:) 是 RouteRegistry 类的实例方法
+        // Swift 可以直接调用，不需要通过顶层函数
 
         registry.registerPage(pattern: "account/settings") { params in
             AccountSettingsViewController()
