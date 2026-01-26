@@ -41,7 +41,7 @@ class FxChartViewController: UIViewController {
     }
 }
 
-// MARK: - 声明式路由协议（Swift 静态成员）
+// MARK: - 声明式路由协议（可选，Swift 侧定义）
 
 /// Swift 协议：用于声明式路由注册
 /// pattern 和 createPage 都是静态成员
@@ -50,13 +50,12 @@ protocol PageRoutable {
     static func createPage(params: [String: Any?]) -> UIViewController
 }
 
-extension PageRoutable {
-    /// 生成 PageRouteDefinition，用于注册
-    static var routeDefinition: PageRouteDefinition {
-        PageRouteDefinition(
-            pattern: pattern,
-            factory: { params in createPage(params: params) }
-        )
+/// 扩展 RouteRegistry 支持 PageRoutable 协议
+extension RouteRegistry {
+    func registerPage<T: PageRoutable>(_ type: T.Type) {
+        registerPage(pattern: T.pattern) { params in
+            T.createPage(params: params)
+        }
     }
 }
 
@@ -93,7 +92,6 @@ class RouteConfiguration {
     static func registerAllRoutes(registry: RouteRegistry) {
 
         // ==================== 方式1：工厂函数注册（简单场景）====================
-        // 直接传入 pattern 和工厂闘函数
 
         registry.registerPage(pattern: "account/settings") { params in
             AccountSettingsViewController()
@@ -105,25 +103,17 @@ class RouteConfiguration {
             return WebViewController(path: path)
         }
 
-        // ==================== 方式2：PageRouteDefinition 注册（推荐）====================
+        // ==================== 方式2：PageRoutable 协议注册（推荐）====================
         // 使用 Swift 协议 + 静态成员，一行注册
 
-        registry.registerPage(definition: OrderDetailViewController.routeDefinition)
-        registry.registerPage(definition: FxChartViewController.routeDefinition)
-        registry.registerPage(definition: PaymentViewController.routeDefinition)
-
-        // 或者批量注册
-        // registry.registerPages(definitions: [
-        //     OrderDetailViewController.routeDefinition,
-        //     FxChartViewController.routeDefinition,
-        //     PaymentViewController.routeDefinition
-        // ])
+        registry.registerPage(OrderDetailViewController.self)
+        registry.registerPage(FxChartViewController.self)
+        registry.registerPage(PaymentViewController.self)
 
         // ==================== Action 路由注册 ====================
 
         registry.registerAction(actionName: "showPopup") { params, callback in
             let message = params["message"] as? String ?? ""
-            // 显示弹窗逻辑
             showAlert(message: message)
             callback?.onSuccess(nil)
         }

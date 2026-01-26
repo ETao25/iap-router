@@ -27,11 +27,39 @@ class IOSPageCreator(
 
 /**
  * 注册页面路由（通过工厂函数）
+ *
  * Swift 调用示例:
  * ```swift
  * registry.registerPage(pattern: "order/detail/:orderId") { params in
  *     OrderDetailViewController(params: params)
  * }
+ * ```
+ *
+ * 声明式注册示例（Swift 静态协议）:
+ * ```swift
+ * // 1. 定义 Swift 协议（静态成员）
+ * protocol PageRoutable {
+ *     static var pattern: String { get }
+ *     static func createPage(params: [String: Any?]) -> UIViewController
+ * }
+ *
+ * // 2. ViewController 实现协议
+ * extension OrderDetailViewController: PageRoutable {
+ *     static var pattern: String { "order/detail/:orderId" }
+ *     static func createPage(params: [String: Any?]) -> UIViewController {
+ *         OrderDetailViewController(params: params)
+ *     }
+ * }
+ *
+ * // 3. 扩展 RouteRegistry（Swift 侧）
+ * extension RouteRegistry {
+ *     func registerPage<T: PageRoutable>(_ type: T.Type) {
+ *         registerPage(pattern: T.pattern) { params in T.createPage(params: params) }
+ *     }
+ * }
+ *
+ * // 4. 注册（一行）
+ * registry.registerPage(OrderDetailViewController.self)
  * ```
  */
 fun RouteRegistry.registerPage(
@@ -78,105 +106,4 @@ fun PageRouteConfig.getIOSPageCreator(): IOSPageCreator? {
  */
 fun PageRouteConfig.createViewController(params: Map<String, Any?>): UIViewController? {
     return getIOSPageCreator()?.createViewController(params)
-}
-
-// ==================== 声明式路由注册 ====================
-
-/**
- * 页面路由定义
- * 用于声明式路由注册，Swift 侧可以定义静态协议桥接此类
- *
- * Swift 使用示例:
- * ```swift
- * // 1. 定义 Swift 协议（静态成员）
- * protocol PageRoutable {
- *     static var pattern: String { get }
- *     static func createPage(params: [String: Any?]) -> UIViewController
- * }
- *
- * extension PageRoutable {
- *     static var routeDefinition: PageRouteDefinition {
- *         PageRouteDefinition(
- *             pattern: pattern,
- *             factory: { params in createPage(params: params) }
- *         )
- *     }
- * }
- *
- * // 2. ViewController 实现协议
- * class OrderDetailViewController: UIViewController, PageRoutable {
- *     static var pattern: String { "order/detail/:orderId" }
- *
- *     static func createPage(params: [String: Any?]) -> UIViewController {
- *         OrderDetailViewController(orderId: params["orderId"] as? String)
- *     }
- * }
- *
- * // 3. 注册（一行）
- * registry.registerPage(definition: OrderDetailViewController.routeDefinition)
- * ```
- */
-class PageRouteDefinition(
-    /**
-     * 路由模式
-     */
-    val pattern: String,
-    /**
-     * 页面创建工厂函数
-     */
-    val factory: (Map<String, Any?>) -> UIViewController
-) {
-    /**
-     * 可选的页面标识符
-     */
-    var pageId: String? = null
-        private set
-
-    /**
-     * 设置自定义 pageId
-     */
-    fun withPageId(pageId: String): PageRouteDefinition {
-        this.pageId = pageId
-        return this
-    }
-
-    /**
-     * 转换为 PageRouteConfig
-     */
-    fun toConfig(): PageRouteConfig {
-        val creator = IOSPageCreator(factory)
-        return PageRouteConfig(
-            pattern = pattern,
-            target = PageTarget(creator),
-            pageId = pageId
-        )
-    }
-}
-
-/**
- * 注册页面路由（通过 PageRouteDefinition）
- *
- * Swift 使用示例:
- * ```swift
- * registry.registerPage(definition: OrderDetailViewController.routeDefinition)
- * ```
- */
-fun RouteRegistry.registerPage(definition: PageRouteDefinition) {
-    registerPage(definition.toConfig())
-}
-
-/**
- * 批量注册页面路由
- *
- * Swift 使用示例:
- * ```swift
- * registry.registerPages(definitions: [
- *     OrderDetailViewController.routeDefinition,
- *     AccountSettingsViewController.routeDefinition,
- *     PaymentViewController.routeDefinition
- * ])
- * ```
- */
-fun RouteRegistry.registerPages(definitions: List<PageRouteDefinition>) {
-    definitions.forEach { registerPage(it) }
 }
