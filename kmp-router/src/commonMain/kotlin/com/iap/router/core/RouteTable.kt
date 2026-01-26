@@ -73,18 +73,28 @@ class RouteTable {
 
     /**
      * 注册页面路由（核心方法）
-     * @param pattern 路由模式，如 "order/detail/:orderId"
-     * @param config 页面路由配置
+     * @param config 页面路由配置（包含 pattern）
      */
-    fun registerPage(pattern: String, config: PageRouteConfig) {
-        val normalizedPattern = normalizePattern(pattern)
+    fun registerPage(config: PageRouteConfig) {
+        val normalizedPattern = normalizePattern(config.pattern)
         // 如果 pageId 为空，使用完整 pattern 作为 pageId
         val effectiveConfig = if (config.pageId == null) {
-            config.copy(pageId = normalizedPattern)
+            config.copy(pattern = normalizedPattern, pageId = normalizedPattern)
         } else {
-            config
+            config.copy(pattern = normalizedPattern)
         }
         pageRoutes[normalizedPattern] = RouteEntry.Page(normalizedPattern, effectiveConfig)
+    }
+
+    /**
+     * 注册页面路由（兼容方法）
+     * @param pattern 路由模式，如 "order/detail/:orderId"
+     * @param config 页面路由配置
+     * @deprecated 使用 registerPage(config: PageRouteConfig) 代替
+     */
+    fun registerPage(pattern: String, config: PageRouteConfig) {
+        // 使用传入的 pattern 覆盖 config 中的 pattern
+        registerPage(config.copy(pattern = pattern))
     }
 
     /**

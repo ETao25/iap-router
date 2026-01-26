@@ -9,10 +9,11 @@ import com.iap.router.model.PageRouteConfig
  * 路由定义（用于批量注册）
  */
 sealed class RouteDefinition {
-    data class Page(
-        val pattern: String,
-        val config: PageRouteConfig
-    ) : RouteDefinition()
+    /**
+     * 页面路由定义
+     * @param config 包含 pattern 的完整配置
+     */
+    data class Page(val config: PageRouteConfig) : RouteDefinition()
 
     data class Action(
         val actionName: String,
@@ -27,9 +28,16 @@ sealed class RouteDefinition {
  */
 interface RouteRegistry {
     /**
-     * 注册页面路由（核心方法）
+     * 注册页面路由（推荐方法）
+     * @param config 页面路由配置（包含 pattern）
+     */
+    fun registerPage(config: PageRouteConfig)
+
+    /**
+     * 注册页面路由（兼容方法）
      * @param pattern 路由模式
      * @param config 页面路由配置
+     * @deprecated 使用 registerPage(config: PageRouteConfig) 代替
      */
     fun registerPage(pattern: String, config: PageRouteConfig)
 
@@ -81,6 +89,10 @@ class RouteRegistryImpl(
     override val routeTable: RouteTable
 ) : RouteRegistry {
 
+    override fun registerPage(config: PageRouteConfig) {
+        routeTable.registerPage(config)
+    }
+
     override fun registerPage(pattern: String, config: PageRouteConfig) {
         routeTable.registerPage(pattern, config)
     }
@@ -96,7 +108,7 @@ class RouteRegistryImpl(
     override fun registerAll(routes: List<RouteDefinition>) {
         routes.forEach { definition ->
             when (definition) {
-                is RouteDefinition.Page -> registerPage(definition.pattern, definition.config)
+                is RouteDefinition.Page -> registerPage(definition.config)
                 is RouteDefinition.Action -> registerAction(
                     definition.actionName,
                     definition.config,

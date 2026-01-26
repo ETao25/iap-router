@@ -82,10 +82,11 @@ fun RouteRegistry.registerPage(
 ) {
     val creator = AndroidPageCreator(activityClass)
     val config = PageRouteConfig(
+        pattern = pattern,
         target = PageTarget(creator),
         pageId = null
     )
-    registerPage(pattern, config)
+    registerPage(config)
 }
 
 /**
@@ -105,10 +106,11 @@ fun RouteRegistry.registerPage(
 ) {
     val creator = AndroidPageCreator(intentFactory)
     val config = PageRouteConfig(
+        pattern = pattern,
         target = PageTarget(creator),
         pageId = null
     )
-    registerPage(pattern, config)
+    registerPage(config)
 }
 
 /**
@@ -141,13 +143,13 @@ fun PageRouteConfig.createIntent(context: Context, params: Map<String, Any?>): I
 // ==================== 声明式路由注册 ====================
 
 /**
- * 页面路由信息接口
+ * 页面路由接口
  * Activity 的 companion object 实现此接口，即可通过 registerPage(Activity) 一行代码注册
  *
  * 使用示例:
  * ```kotlin
  * class OrderDetailActivity : Activity() {
- *     companion object : PageRouteInfo {
+ *     companion object : PageRoutable {
  *         override val pattern = "order/detail/:orderId"
  *         override fun createIntent(context: Context, params: Map<String, Any?>) =
  *             Intent(context, OrderDetailActivity::class.java).apply {
@@ -158,9 +160,11 @@ fun PageRouteConfig.createIntent(context: Context, params: Map<String, Any?>): I
  *
  * // 注册（一行）
  * registry.registerPage(OrderDetailActivity)
+ * // 或者使用 pageBuilder
+ * registry.registerPage(OrderDetailActivity.pageBuilder)
  * ```
  */
-interface PageRouteInfo {
+interface PageRoutable {
     /**
      * 路由模式
      */
@@ -173,23 +177,37 @@ interface PageRouteInfo {
 }
 
 /**
- * 注册页面路由（通过 PageRouteInfo）
- * 用于 Activity companion object 实现 PageRouteInfo 的场景
+ * 获取 PageRouteConfig（用于一行注册）
+ *
+ * 使用示例:
+ * ```kotlin
+ * registry.registerPage(OrderDetailActivity.pageBuilder)
+ * ```
+ */
+val PageRoutable.pageBuilder: PageRouteConfig
+    get() {
+        val routable = this
+        val creator = AndroidPageCreator { context, params ->
+            routable.createIntent(context, params)
+        }
+        return PageRouteConfig(
+            pattern = pattern,
+            target = PageTarget(creator),
+            pageId = null
+        )
+    }
+
+/**
+ * 注册页面路由（通过 PageRoutable）
+ * 用于 Activity companion object 实现 PageRoutable 的场景
  *
  * 使用示例:
  * ```kotlin
  * registry.registerPage(OrderDetailActivity)
  * ```
  */
-fun RouteRegistry.registerPage(info: PageRouteInfo) {
-    val creator = AndroidPageCreator { context, params ->
-        info.createIntent(context, params)
-    }
-    val config = PageRouteConfig(
-        target = PageTarget(creator),
-        pageId = null
-    )
-    registerPage(info.pattern, config)
+fun RouteRegistry.registerPage(page: PageRoutable) {
+    registerPage(page.pageBuilder)
 }
 
 /**
@@ -204,6 +222,6 @@ fun RouteRegistry.registerPage(info: PageRouteInfo) {
  * )
  * ```
  */
-fun RouteRegistry.registerPages(vararg infos: PageRouteInfo) {
-    infos.forEach { registerPage(it) }
+fun RouteRegistry.registerPages(vararg pages: PageRoutable) {
+    pages.forEach { registerPage(it) }
 }

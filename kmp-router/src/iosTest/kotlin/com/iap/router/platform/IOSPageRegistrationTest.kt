@@ -201,37 +201,43 @@ class TestViewController(
     val params: Map<String, Any?> = emptyMap()
 ) : UIViewController(nibName = null, bundle = null)
 
-// ==================== PageRouteDefinition 测试 ====================
+// ==================== PageRoutable 测试 ====================
 
 /**
- * PageRouteDefinition 声明式注册测试
- * 演示 iOS 上使用 PageRouteDefinition 进行路由注册
+ * PageRoutable 声明式注册测试
+ * 演示 iOS 上使用 PageRoutable 和 pageBuilder 进行路由注册
  */
-class PageRouteDefinitionTest {
+class PageRoutableTest {
 
-    // 模拟 Swift 中定义的 routeDefinition
-    private val orderDetailDefinition = PageRouteDefinition(
-        pattern = "order/detail/:orderId",
-        factory = { params -> TestViewController(params) }
-    )
+    // 模拟 ViewController 实现 PageRoutable
+    private object OrderDetailRoutable : PageRoutable {
+        override val pattern = "order/detail/:orderId"
+        override fun createPage(params: Map<String, Any?>): UIViewController {
+            return TestViewController(params)
+        }
+    }
 
-    private val paymentDefinition = PageRouteDefinition(
-        pattern = "payment/checkout",
-        factory = { TestViewController(it) }
-    )
+    private object PaymentRoutable : PageRoutable {
+        override val pattern = "payment/checkout"
+        override fun createPage(params: Map<String, Any?>): UIViewController {
+            return TestViewController(params)
+        }
+    }
 
-    private val accountDefinition = PageRouteDefinition(
-        pattern = "account/settings",
-        factory = { TestViewController() }
-    )
+    private object AccountRoutable : PageRoutable {
+        override val pattern = "account/settings"
+        override fun createPage(params: Map<String, Any?>): UIViewController {
+            return TestViewController()
+        }
+    }
 
     @Test
-    fun `registerPage with PageRouteDefinition should work`() {
+    fun `registerPage with PageRoutable should work`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        // 通过 PageRouteDefinition 注册
-        registry.registerPage(orderDetailDefinition)
+        // 通过 PageRoutable 注册
+        registry.registerPage(OrderDetailRoutable)
 
         assertTrue(table.contains("order/detail/:orderId"))
 
@@ -241,11 +247,26 @@ class PageRouteDefinitionTest {
     }
 
     @Test
-    fun `registerPage with PageRouteDefinition should use pattern`() {
+    fun `registerPage with pageBuilder should work`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        registry.registerPage(orderDetailDefinition)
+        // 通过 pageBuilder 注册
+        registry.registerPage(OrderDetailRoutable.pageBuilder)
+
+        assertTrue(table.contains("order/detail/:orderId"))
+
+        val config = table.getPageConfig("order/detail/:orderId")
+        assertNotNull(config)
+        assertIs<IOSPageCreator>(config.target.creator)
+    }
+
+    @Test
+    fun `registerPage with PageRoutable should use pattern`() {
+        val table = RouteTable()
+        val registry = RouteRegistryImpl(table)
+
+        registry.registerPage(OrderDetailRoutable)
 
         val config = table.getPageConfig("order/detail/:orderId")
         assertNotNull(config)
@@ -253,15 +274,15 @@ class PageRouteDefinitionTest {
     }
 
     @Test
-    fun `registerPages should batch register multiple definitions`() {
+    fun `registerPages should batch register multiple routables`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
         // 批量注册
         registry.registerPages(listOf(
-            orderDetailDefinition,
-            paymentDefinition,
-            accountDefinition
+            OrderDetailRoutable,
+            PaymentRoutable,
+            AccountRoutable
         ))
 
         assertEquals(3, table.size())
@@ -271,11 +292,11 @@ class PageRouteDefinitionTest {
     }
 
     @Test
-    fun `lookup should find route registered via PageRouteDefinition`() {
+    fun `lookup should find route registered via PageRoutable`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        registry.registerPage(orderDetailDefinition)
+        registry.registerPage(OrderDetailRoutable)
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://order/detail/123")!!
         val result = table.lookup(parsedRoute)
@@ -286,11 +307,11 @@ class PageRouteDefinitionTest {
     }
 
     @Test
-    fun `factory in PageRouteDefinition should receive params`() {
+    fun `createPage in PageRoutable should receive params`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        registry.registerPage(orderDetailDefinition)
+        registry.registerPage(OrderDetailRoutable)
 
         val config = table.getPageConfig("order/detail/:orderId")
         assertNotNull(config)
@@ -298,5 +319,16 @@ class PageRouteDefinitionTest {
         val vc = config.createViewController(mapOf("orderId" to "test123"))
         assertIs<TestViewController>(vc)
         assertEquals("test123", (vc as TestViewController).params["orderId"])
+    }
+
+    @Test
+    fun `PageRoutable companion createConfig should work`() {
+        val config = PageRoutable.createConfig(
+            pattern = "test/pattern",
+            factory = { TestViewController(it) }
+        )
+
+        assertEquals("test/pattern", config.pattern)
+        assertIs<IOSPageCreator>(config.target.creator)
     }
 }

@@ -20,7 +20,7 @@ class FallbackManagerTest {
             parsedRoute = parsedRoute,
             params = emptyMap(),
             source = RouteSource.INTERNAL,
-            timestamp = System.currentTimeMillis()
+            timestamp = 0L // 测试用常量
         )
     }
 
