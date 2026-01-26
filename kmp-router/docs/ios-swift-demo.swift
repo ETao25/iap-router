@@ -41,25 +41,9 @@ class FxChartViewController: UIViewController {
     }
 }
 
-// MARK: - 声明式路由协议（可选，Swift 侧定义）
-
-/// Swift 协议：用于声明式路由注册
-/// pattern 和 createPage 都是静态成员
-protocol PageRoutable {
-    static var pattern: String { get }
-    static func createPage(params: [String: Any?]) -> UIViewController
-}
-
-/// 扩展 RouteRegistry 支持 PageRoutable 协议
-extension RouteRegistry {
-    func registerPage<T: PageRoutable>(_ type: T.Type) {
-        // RouteRegistry 现在直接有 registerPage(pattern:factory:) 方法
-        // 这是类的实例方法，Swift 可以直接调用
-        registerPage(pattern: T.pattern) { params in
-            T.createPage(params: params)
-        }
-    }
-}
+// MARK: - 声明式路由协议
+// PageRoutable 协议和 RouteRegistry 扩展由 KMPRouter pod 提供
+// 无需在应用端自行定义
 
 // MARK: - ViewController 实现 PageRoutable 协议
 

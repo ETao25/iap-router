@@ -53,6 +53,10 @@ kotlin {
             baseName = iosFrameworkName
             isStatic = false
         }
+
+        // Include Swift source files in the pod
+        extraSpecAttributes["source_files"] = "'swift/**/*.swift'"
+        extraSpecAttributes["swift_version"] = "'5.0'"
     }
 
     sourceSets {

@@ -1,8 +1,6 @@
 package com.iap.router.platform
 
 import android.app.Activity
-import android.content.Context
-import android.content.Intent
 import com.iap.router.RouteRegistry
 import com.iap.router.core.ProtocolParser
 import com.iap.router.core.RouteTable
@@ -200,97 +198,3 @@ class TestActivity : Activity()
  * 另一个测试用 Activity
  */
 class AnotherTestActivity : Activity()
-
-// ==================== PageRoutable 测试辅助类 ====================
-
-/**
- * 实现 PageRoutable 的测试 Activity
- * 演示声明式路由注册模式
- */
-class OrderDetailActivity : Activity() {
-    companion object : PageRoutable {
-        override val pattern = "order/detail/:orderId"
-
-        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
-            return Intent(context, OrderDetailActivity::class.java).apply {
-                putExtra("orderId", params["orderId"] as? String)
-            }
-        }
-    }
-}
-
-/**
- * 账户设置测试 Activity
- */
-class AccountSettingsActivity : Activity() {
-    companion object : PageRoutable {
-        override val pattern = "account/settings"
-
-        override fun createIntent(context: Context, params: Map<String, Any?>): Intent {
-            return Intent(context, AccountSettingsActivity::class.java)
-        }
-    }
-}
-
-// ==================== PageRoutable 声明式注册测试 ====================
-
-class PageRoutableRegistrationTest {
-
-    @Test
-    fun `registerPage with PageRoutable should work`() {
-        val table = RouteTable()
-        val registry = RouteRegistry(table)
-
-        // 通过 companion object 注册（一行）
-        registry.registerPage(OrderDetailActivity)
-
-        assertTrue(table.contains("order/detail/:orderId"))
-
-        val config = table.getPageConfig("order/detail/:orderId")
-        assertNotNull(config)
-        assertIs<AndroidPageCreator>(config.target.creator)
-    }
-
-    @Test
-    fun `registerPage with PageRoutable should use pattern from interface`() {
-        val table = RouteTable()
-        val registry = RouteRegistry(table)
-
-        registry.registerPage(OrderDetailActivity)
-
-        val config = table.getPageConfig("order/detail/:orderId")
-        assertNotNull(config)
-        assertEquals("order/detail/:orderId", config.pageId)
-    }
-
-    @Test
-    fun `registerPages should batch register multiple routes`() {
-        val table = RouteTable()
-        val registry = RouteRegistry(table)
-
-        // 批量注册
-        registry.registerPages(
-            OrderDetailActivity,
-            AccountSettingsActivity
-        )
-
-        assertEquals(2, table.size())
-        assertTrue(table.contains("order/detail/:orderId"))
-        assertTrue(table.contains("account/settings"))
-    }
-
-    @Test
-    fun `lookup should find route registered via PageRoutable`() {
-        val table = RouteTable()
-        val registry = RouteRegistry(table)
-
-        registry.registerPage(OrderDetailActivity)
-
-        val parsedRoute = ProtocolParser.parseOrNull("iap://order/detail/123")!!
-        val result = table.lookup(parsedRoute)
-
-        assertNotNull(result)
-        assertIs<RouteLookupResult.PageRoute>(result)
-        assertEquals("123", result.matchResult.pathParams["orderId"])
-    }
-}

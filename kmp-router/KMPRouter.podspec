@@ -50,5 +50,6 @@ Pod::Spec.new do |spec|
             SCRIPT
         }
     ]
-                
+    spec.source_files = 'swift/**/*.swift'
+    spec.swift_version = '5.0'
 end
