@@ -8,8 +8,6 @@ import android.os.Bundle
 import com.iap.router.RouteRegistry
 import com.iap.router.core.ActionCallback
 import com.iap.router.core.ActionHandler
-import com.iap.router.fallback.FallbackAction
-import com.iap.router.fallback.FallbackConfig
 import com.iap.router.platform.PageBuilder
 
 // ==================== 示例页面定义 ====================
@@ -79,13 +77,10 @@ object RouteConfiguration {
             }
         )
 
-        // 支付页 - 带降级配置
+        // 支付页
         registry.registerPage(
             pattern = "payment/newFeature",
-            builder = PageBuilder { PaymentActivity() },
-            fallback = FallbackConfig(
-                action = FallbackAction.NavigateTo("iap://h5/payment")
-            )
+            builder = PageBuilder { PaymentActivity() }
         )
 
         // ==================== 方式2：通过 class 注册（推荐 Android）====================
@@ -158,6 +153,21 @@ object RouteConfiguration {
 
          // 注册所有路由
          RouteConfiguration.registerAllRoutes(registry)
+
+         // ==================== 配置降级策略（使用 FallbackManager）====================
+         // 注意：降级配置是基于 pattern 的，不是单页面维度的
+
+         val fallbackManager = FallbackManager()
+
+         // 设置全局降级（路由未找到时）
+         fallbackManager.setGlobalFallback(FallbackAction.NavigateTo("iap://error/404"))
+
+         // 设置基于 pattern 的降级规则
+         fallbackManager.addPatternFallback("payment/*", FallbackAction.NavigateTo("iap://h5/payment"))
+         fallbackManager.addPatternFallback("user/*", FallbackAction.NavigateTo("iap://login"))
+
+         // 注册到 Router
+         KMPRouter.instance.setFallbackHandler(fallbackManager)
      }
  }
 */

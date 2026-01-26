@@ -66,15 +66,12 @@ class RouteConfiguration {
             }
         )
 
-        // 支付页 - 带降级配置
+        // 支付页
         registry.registerPage(
             pattern: "payment/newFeature",
             builder: PageBuilder { params in
                 PaymentViewController(params: params)
-            },
-            fallback: FallbackConfig(
-                action: FallbackAction.navigateTo("iap://h5/payment")
-            )
+            }
         )
 
         // ==================== 方式2：通过 class 注册 ====================
@@ -146,6 +143,21 @@ func showAlert(message: String) {
 
      // 注册所有路由
      RouteConfiguration.registerAllRoutes(registry: registry)
+
+     // ==================== 配置降级策略（使用 FallbackManager）====================
+     // 注意：降级配置是基于 pattern 的，不是单页面维度的
+
+     let fallbackManager = FallbackManager()
+
+     // 设置全局降级（路由未找到时）
+     fallbackManager.setGlobalFallback(FallbackAction.navigateTo("iap://error/404"))
+
+     // 设置基于 pattern 的降级规则
+     fallbackManager.addPatternFallback(pattern: "payment/*", action: FallbackAction.navigateTo("iap://h5/payment"))
+     fallbackManager.addPatternFallback(pattern: "user/*", action: FallbackAction.navigateTo("iap://login"))
+
+     // 注册到 Router
+     KMPRouter.shared.setFallbackHandler(fallbackManager)
  }
 */
 
