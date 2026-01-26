@@ -83,22 +83,20 @@ fun PageRouteConfig.createViewController(params: Map<String, Any?>): UIViewContr
 // ==================== 声明式路由注册 ====================
 
 /**
- * 页面路由接口
- * 用于声明式路由注册，Swift 侧可以使用 protocol 实现
+ * 页面路由定义
+ * 用于声明式路由注册，Swift 侧可以定义静态协议桥接此类
  *
  * Swift 使用示例:
  * ```swift
- * // 1. 定义 Swift 协议（继承 KMP 的 PageRoutable）
- * // 注意：由于 KMP 导出的限制，建议在 Swift 侧定义 protocol 并桥接
- *
- * protocol SwiftPageRoutable {
+ * // 1. 定义 Swift 协议（静态成员）
+ * protocol PageRoutable {
  *     static var pattern: String { get }
  *     static func createPage(params: [String: Any?]) -> UIViewController
  * }
  *
- * extension SwiftPageRoutable {
- *     static var pageBuilder: PageRouteConfig {
- *         PageRoutable.Companion.shared.createConfig(
+ * extension PageRoutable {
+ *     static var routeDefinition: PageRouteDefinition {
+ *         PageRouteDefinition(
  *             pattern: pattern,
  *             factory: { params in createPage(params: params) }
  *         )
@@ -106,7 +104,7 @@ fun PageRouteConfig.createViewController(params: Map<String, Any?>): UIViewContr
  * }
  *
  * // 2. ViewController 实现协议
- * class OrderDetailViewController: UIViewController, SwiftPageRoutable {
+ * class OrderDetailViewController: UIViewController, PageRoutable {
  *     static var pattern: String { "order/detail/:orderId" }
  *
  *     static func createPage(params: [String: Any?]) -> UIViewController {
@@ -115,84 +113,70 @@ fun PageRouteConfig.createViewController(params: Map<String, Any?>): UIViewContr
  * }
  *
  * // 3. 注册（一行）
- * registry.registerPage(config: OrderDetailViewController.pageBuilder)
+ * registry.registerPage(definition: OrderDetailViewController.routeDefinition)
  * ```
  */
-interface PageRoutable {
+class PageRouteDefinition(
     /**
      * 路由模式
      */
-    val pattern: String
+    val pattern: String,
+    /**
+     * 页面创建工厂函数
+     */
+    val factory: (Map<String, Any?>) -> UIViewController
+) {
+    /**
+     * 可选的页面标识符
+     */
+    var pageId: String? = null
+        private set
 
     /**
-     * 创建 UIViewController
+     * 设置自定义 pageId
      */
-    fun createPage(params: Map<String, Any?>): UIViewController
+    fun withPageId(pageId: String): PageRouteDefinition {
+        this.pageId = pageId
+        return this
+    }
 
-    companion object {
-        /**
-         * 创建 PageRouteConfig
-         * Swift 可通过此方法创建配置
-         */
-        fun createConfig(
-            pattern: String,
-            factory: (Map<String, Any?>) -> UIViewController
-        ): PageRouteConfig {
-            val creator = IOSPageCreator(factory)
-            return PageRouteConfig(
-                pattern = pattern,
-                target = PageTarget(creator),
-                pageId = null
-            )
-        }
+    /**
+     * 转换为 PageRouteConfig
+     */
+    fun toConfig(): PageRouteConfig {
+        val creator = IOSPageCreator(factory)
+        return PageRouteConfig(
+            pattern = pattern,
+            target = PageTarget(creator),
+            pageId = pageId
+        )
     }
 }
 
 /**
- * 获取 PageRouteConfig（用于一行注册）
+ * 注册页面路由（通过 PageRouteDefinition）
  *
- * Kotlin 使用示例:
- * ```kotlin
- * registry.registerPage(MyViewController.pageBuilder)
+ * Swift 使用示例:
+ * ```swift
+ * registry.registerPage(definition: OrderDetailViewController.routeDefinition)
  * ```
  */
-val PageRoutable.pageBuilder: PageRouteConfig
-    get() {
-        val routable = this
-        val creator = IOSPageCreator { params ->
-            routable.createPage(params)
-        }
-        return PageRouteConfig(
-            pattern = pattern,
-            target = PageTarget(creator),
-            pageId = null
-        )
-    }
-
-/**
- * 注册页面路由（通过 PageRoutable）
- *
- * 使用示例:
- * ```kotlin
- * registry.registerPage(MyViewController)
- * ```
- */
-fun RouteRegistry.registerPage(page: PageRoutable) {
-    registerPage(page.pageBuilder)
+fun RouteRegistry.registerPage(definition: PageRouteDefinition) {
+    registerPage(definition.toConfig())
 }
 
 /**
  * 批量注册页面路由
  *
- * 使用示例:
- * ```kotlin
- * registry.registerPages(
- *     OrderDetailViewController,
- *     AccountSettingsViewController,
- *     PaymentViewController
- * )
+ * Swift 使用示例:
+ * ```swift
+ * registry.registerPages(definitions: [
+ *     OrderDetailViewController.routeDefinition,
+ *     AccountSettingsViewController.routeDefinition,
+ *     PaymentViewController.routeDefinition
+ * ])
  * ```
  */
-fun RouteRegistry.registerPages(pages: List<PageRoutable>) {
-    pages.forEach { registerPage(it) }
+fun RouteRegistry.registerPages(definitions: List<PageRouteDefinition>) {
+    definitions.forEach { registerPage(it) }
 }

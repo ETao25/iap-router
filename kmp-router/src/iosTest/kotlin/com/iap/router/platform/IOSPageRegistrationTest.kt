@@ -201,43 +201,27 @@ class TestViewController(
     val params: Map<String, Any?> = emptyMap()
 ) : UIViewController(nibName = null, bundle = null)
 
-// ==================== PageRoutable 测试 ====================
+// ==================== PageRouteDefinition 测试 ====================
 
 /**
- * PageRoutable 声明式注册测试
- * 演示 iOS 上使用 PageRoutable 和 pageBuilder 进行路由注册
+ * PageRouteDefinition 声明式注册测试
+ * 演示 iOS 上使用 PageRouteDefinition 进行路由注册
  */
-class PageRoutableTest {
-
-    // 模拟 ViewController 实现 PageRoutable
-    private object OrderDetailRoutable : PageRoutable {
-        override val pattern = "order/detail/:orderId"
-        override fun createPage(params: Map<String, Any?>): UIViewController {
-            return TestViewController(params)
-        }
-    }
-
-    private object PaymentRoutable : PageRoutable {
-        override val pattern = "payment/checkout"
-        override fun createPage(params: Map<String, Any?>): UIViewController {
-            return TestViewController(params)
-        }
-    }
-
-    private object AccountRoutable : PageRoutable {
-        override val pattern = "account/settings"
-        override fun createPage(params: Map<String, Any?>): UIViewController {
-            return TestViewController()
-        }
-    }
+class PageRouteDefinitionTest {
 
     @Test
-    fun `registerPage with PageRoutable should work`() {
+    fun `registerPage with PageRouteDefinition should work`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        // 通过 PageRoutable 注册
-        registry.registerPage(OrderDetailRoutable)
+        // 创建 PageRouteDefinition
+        val definition = PageRouteDefinition(
+            pattern = "order/detail/:orderId",
+            factory = { params -> TestViewController(params) }
+        )
+
+        // 通过 PageRouteDefinition 注册
+        registry.registerPage(definition)
 
         assertTrue(table.contains("order/detail/:orderId"))
 
@@ -247,26 +231,33 @@ class PageRoutableTest {
     }
 
     @Test
-    fun `registerPage with pageBuilder should work`() {
+    fun `PageRouteDefinition with pageId should work`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        // 通过 pageBuilder 注册
-        registry.registerPage(OrderDetailRoutable.pageBuilder)
+        val definition = PageRouteDefinition(
+            pattern = "order/detail/:orderId",
+            factory = { TestViewController(it) }
+        ).withPageId("orderDetail")
 
-        assertTrue(table.contains("order/detail/:orderId"))
+        registry.registerPage(definition)
 
         val config = table.getPageConfig("order/detail/:orderId")
         assertNotNull(config)
-        assertIs<IOSPageCreator>(config.target.creator)
+        assertEquals("orderDetail", config.pageId)
     }
 
     @Test
-    fun `registerPage with PageRoutable should use pattern`() {
+    fun `PageRouteDefinition should use pattern as default pageId`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        registry.registerPage(OrderDetailRoutable)
+        val definition = PageRouteDefinition(
+            pattern = "order/detail/:orderId",
+            factory = { TestViewController(it) }
+        )
+
+        registry.registerPage(definition)
 
         val config = table.getPageConfig("order/detail/:orderId")
         assertNotNull(config)
@@ -274,16 +265,18 @@ class PageRoutableTest {
     }
 
     @Test
-    fun `registerPages should batch register multiple routables`() {
+    fun `registerPages should batch register multiple definitions`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
+        val definitions = listOf(
+            PageRouteDefinition("order/detail/:orderId") { TestViewController(it) },
+            PageRouteDefinition("payment/checkout") { TestViewController(it) },
+            PageRouteDefinition("account/settings") { TestViewController() }
+        )
+
         // 批量注册
-        registry.registerPages(listOf(
-            OrderDetailRoutable,
-            PaymentRoutable,
-            AccountRoutable
-        ))
+        registry.registerPages(definitions)
 
         assertEquals(3, table.size())
         assertTrue(table.contains("order/detail/:orderId"))
@@ -292,11 +285,15 @@ class PageRoutableTest {
     }
 
     @Test
-    fun `lookup should find route registered via PageRoutable`() {
+    fun `lookup should find route registered via PageRouteDefinition`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        registry.registerPage(OrderDetailRoutable)
+        val definition = PageRouteDefinition(
+            pattern = "order/detail/:orderId",
+            factory = { TestViewController(it) }
+        )
+        registry.registerPage(definition)
 
         val parsedRoute = ProtocolParser.parseOrNull("iap://order/detail/123")!!
         val result = table.lookup(parsedRoute)
@@ -307,11 +304,15 @@ class PageRoutableTest {
     }
 
     @Test
-    fun `createPage in PageRoutable should receive params`() {
+    fun `PageRouteDefinition factory should receive params`() {
         val table = RouteTable()
         val registry = RouteRegistryImpl(table)
 
-        registry.registerPage(OrderDetailRoutable)
+        val definition = PageRouteDefinition(
+            pattern = "order/detail/:orderId",
+            factory = { params -> TestViewController(params) }
+        )
+        registry.registerPage(definition)
 
         val config = table.getPageConfig("order/detail/:orderId")
         assertNotNull(config)
@@ -322,11 +323,13 @@ class PageRoutableTest {
     }
 
     @Test
-    fun `PageRoutable companion createConfig should work`() {
-        val config = PageRoutable.createConfig(
+    fun `PageRouteDefinition toConfig should create valid config`() {
+        val definition = PageRouteDefinition(
             pattern = "test/pattern",
             factory = { TestViewController(it) }
         )
+
+        val config = definition.toConfig()
 
         assertEquals("test/pattern", config.pattern)
         assertIs<IOSPageCreator>(config.target.creator)

@@ -72,7 +72,7 @@ class RouteTable {
     private val actionRoutes = mutableMapOf<String, RouteEntry.Action>()
 
     /**
-     * 注册页面路由（核心方法）
+     * 注册页面路由
      * @param config 页面路由配置（包含 pattern）
      */
     fun registerPage(config: PageRouteConfig) {
@@ -84,17 +84,6 @@ class RouteTable {
             config.copy(pattern = normalizedPattern)
         }
         pageRoutes[normalizedPattern] = RouteEntry.Page(normalizedPattern, effectiveConfig)
-    }
-
-    /**
-     * 注册页面路由（兼容方法）
-     * @param pattern 路由模式，如 "order/detail/:orderId"
-     * @param config 页面路由配置
-     * @deprecated 使用 registerPage(config: PageRouteConfig) 代替
-     */
-    fun registerPage(pattern: String, config: PageRouteConfig) {
-        // 使用传入的 pattern 覆盖 config 中的 pattern
-        registerPage(config.copy(pattern = pattern))
     }
 
     /**

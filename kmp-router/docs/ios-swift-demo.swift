@@ -41,57 +41,83 @@ class FxChartViewController: UIViewController {
     }
 }
 
+// MARK: - 声明式路由协议（Swift 静态成员）
+
+/// Swift 协议：用于声明式路由注册
+/// pattern 和 createPage 都是静态成员
+protocol PageRoutable {
+    static var pattern: String { get }
+    static func createPage(params: [String: Any?]) -> UIViewController
+}
+
+extension PageRoutable {
+    /// 生成 PageRouteDefinition，用于注册
+    static var routeDefinition: PageRouteDefinition {
+        PageRouteDefinition(
+            pattern: pattern,
+            factory: { params in createPage(params: params) }
+        )
+    }
+}
+
+// MARK: - ViewController 实现 PageRoutable 协议
+
+extension OrderDetailViewController: PageRoutable {
+    static var pattern: String { "order/detail/:orderId" }
+
+    static func createPage(params: [String: Any?]) -> UIViewController {
+        OrderDetailViewController(params: params)
+    }
+}
+
+extension FxChartViewController: PageRoutable {
+    static var pattern: String { "fx/:pairId/chart" }
+
+    static func createPage(params: [String: Any?]) -> UIViewController {
+        FxChartViewController(params: params)
+    }
+}
+
+extension PaymentViewController: PageRoutable {
+    static var pattern: String { "payment/checkout" }
+
+    static func createPage(params: [String: Any?]) -> UIViewController {
+        PaymentViewController(params: params)
+    }
+}
+
 // MARK: - 路由注册配置
 
 class RouteConfiguration {
 
     static func registerAllRoutes(registry: RouteRegistry) {
 
-        // ==================== 方式1：通过 builder 注册（推荐）====================
-        // 类型安全：返回类型必须是 UIViewController
+        // ==================== 方式1：工厂函数注册（简单场景）====================
+        // 直接传入 pattern 和工厂闘函数
 
-        // 订单详情页 - 带路径参数
-        registry.registerPage(
-            pattern: "order/detail/:orderId",
-            builder: PageBuilder { params in
-                OrderDetailViewController(params: params)
-            }
-        )
+        registry.registerPage(pattern: "account/settings") { params in
+            AccountSettingsViewController()
+        }
 
-        // FX 图表页 - 多级路径参数
-        registry.registerPage(
-            pattern: "fx/:pairId/chart",
-            builder: PageBuilder { params in
-                FxChartViewController(params: params)
-            }
-        )
+        registry.registerPage(pattern: "webview/*") { params in
+            // 通配符匹配的路径在 params["*"] 中
+            let path = params["*"] as? String ?? ""
+            return WebViewController(path: path)
+        }
 
-        // 支付页
-        registry.registerPage(
-            pattern: "payment/newFeature",
-            builder: PageBuilder { params in
-                PaymentViewController(params: params)
-            }
-        )
+        // ==================== 方式2：PageRouteDefinition 注册（推荐）====================
+        // 使用 Swift 协议 + 静态成员，一行注册
 
-        // ==================== 方式2：通过 class 注册 ====================
-        // 适用于无需参数处理的简单页面
+        registry.registerPage(definition: OrderDetailViewController.routeDefinition)
+        registry.registerPage(definition: FxChartViewController.routeDefinition)
+        registry.registerPage(definition: PaymentViewController.routeDefinition)
 
-        registry.registerPage(
-            pattern: "account/settings",
-            pageClass: AccountSettingsViewController.self
-        )
-
-        // ==================== 方式3：使用通配符 ====================
-
-        registry.registerPage(
-            pattern: "webview/*",
-            builder: PageBuilder { params in
-                // 通配符匹配的路径在 params["*"] 中
-                let path = params["*"] as? String ?? ""
-                return WebViewController(path: path)
-            }
-        )
+        // 或者批量注册
+        // registry.registerPages(definitions: [
+        //     OrderDetailViewController.routeDefinition,
+        //     FxChartViewController.routeDefinition,
+        //     PaymentViewController.routeDefinition
+        // ])
 
         // ==================== Action 路由注册 ====================
 

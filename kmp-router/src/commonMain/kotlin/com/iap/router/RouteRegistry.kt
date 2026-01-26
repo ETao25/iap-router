@@ -28,18 +28,10 @@ sealed class RouteDefinition {
  */
 interface RouteRegistry {
     /**
-     * 注册页面路由（推荐方法）
+     * 注册页面路由
      * @param config 页面路由配置（包含 pattern）
      */
     fun registerPage(config: PageRouteConfig)
-
-    /**
-     * 注册页面路由（兼容方法）
-     * @param pattern 路由模式
-     * @param config 页面路由配置
-     * @deprecated 使用 registerPage(config: PageRouteConfig) 代替
-     */
-    fun registerPage(pattern: String, config: PageRouteConfig)
 
     /**
      * 注册 Action 路由
@@ -91,10 +83,6 @@ class RouteRegistryImpl(
 
     override fun registerPage(config: PageRouteConfig) {
         routeTable.registerPage(config)
-    }
-
-    override fun registerPage(pattern: String, config: PageRouteConfig) {
-        routeTable.registerPage(pattern, config)
     }
 
     override fun registerAction(actionName: String, handler: ActionHandler) {
