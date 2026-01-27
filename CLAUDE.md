@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 KMP Router SDK - 基于 Kotlin Multiplatform 的跨平台路由 SDK，为 iOS 和 Android 提供统一的路由能力。
 
+**注意：本项目仅支持 iOS 和 Android 平台，不支持 JVM 平台。**
+
 核心目标：
 - 统一的路由协议规范（`iap://{path}?params`）
 - 双端一致的核心路由能力
@@ -23,17 +25,17 @@ cd kmp-router
 # 运行所有测试
 ./gradlew allTests
 
-# 运行跨平台测试（主要测试）
-./gradlew jvmTest
-
-# 运行 Android 测试
+# 运行 Android 测试（主要测试）
 ./gradlew testDebugUnitTest
 
 # 运行 iOS 测试（需要 macOS）
 ./gradlew iosSimulatorArm64Test
 
 # 运行单个测试类
-./gradlew jvmTest --tests "com.iap.router.core.ProtocolParserTest"
+./gradlew testDebugUnitTest --tests "com.iap.router.core.ProtocolParserTest"
+
+# 编译 iOS Framework
+./gradlew compileKotlinIosSimulatorArm64
 
 # 清理构建
 ./gradlew clean

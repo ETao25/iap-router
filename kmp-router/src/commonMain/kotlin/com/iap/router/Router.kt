@@ -40,6 +40,20 @@ import kotlin.coroutines.CoroutineContext
  * - 页面导航 / Action 执行
  * - 降级处理
  * - 观察者通知
+ *
+ * 使用单例模式，通过 Router.shared 访问
+ *
+ * 初始化示例（iOS）：
+ * ```swift
+ * Router.shared.initialize()
+ * ```
+ *
+ * 初始化示例（Android）：
+ * ```kotlin
+ * Router.shared.initialize()
+ * ```
+ *
+ * 注意：通常应使用 Router.shared 单例，不建议直接创建新实例
  */
 class Router(
     /**
@@ -62,20 +76,32 @@ class Router(
      */
     coroutineContext: CoroutineContext = Dispatchers.Main + SupervisorJob()
 ) {
+    companion object {
+        /**
+         * 单例实例
+         */
+        val shared: Router = Router()
+    }
+
+    /**
+     * 是否已初始化
+     */
+    private var initialized = false
+
     /**
      * 路由注册器
      */
     val registry: RouteRegistry = RouteRegistry(routeTable)
 
     /**
-     * 导航器（需要平台实现后设置）
+     * 导航器（由平台初始化方法设置）
      */
-    var navigator: Navigator? = null
+    internal var navigator: Navigator? = null
 
     /**
-     * Action 执行器（需要平台实现后设置）
+     * Action 执行器（由平台初始化方法设置）
      */
-    var actionExecutor: ActionExecutor? = null
+    internal var actionExecutor: ActionExecutor? = null
 
     /**
      * 降级处理器
@@ -86,6 +112,18 @@ class Router(
      * 协程作用域
      */
     private val scope = CoroutineScope(coroutineContext)
+
+    /**
+     * 检查是否已初始化
+     */
+    fun isInitialized(): Boolean = initialized
+
+    /**
+     * 标记为已初始化（由平台实现调用）
+     */
+    internal fun markInitialized() {
+        initialized = true
+    }
 
     // ==================== 路由打开 API ====================
 

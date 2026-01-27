@@ -7,19 +7,27 @@ import com.iap.router.Router
  */
 
 /**
- * 配置 iOS 平台组件
+ * 初始化 Router
  *
- * 调用此方法后，Router 即可执行 iOS 页面导航和 Action
+ * 配置 iOS 平台组件，调用此方法后 Router 即可执行 iOS 页面导航和 Action
  *
- * 使用示例：
+ * 使用示例（Swift）：
+ * ```swift
+ * Router.shared.initialize()
+ * ```
+ *
+ * 使用示例（Kotlin）：
  * ```kotlin
- * val router = Router()
- * router.setupIOSPlatform()
+ * Router.shared.initialize()
  * ```
  */
-fun Router.setupIOSPlatform() {
+fun Router.initialize() {
+    if (isInitialized()) {
+        return
+    }
     navigator = IOSNavigator(routeTable)
     actionExecutor = IOSActionExecutor(routeTable)
+    markInitialized()
 }
 
 /**

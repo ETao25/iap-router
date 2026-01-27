@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.kotlinMultiplatform)
@@ -12,16 +10,6 @@ group = "com.iap"
 version = "1.0.0-SNAPSHOT"
 
 kotlin {
-    // JVM target for testing
-    jvm {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
-        }
-        testRuns["test"].executionTask.configure {
-            useJUnitPlatform()
-        }
-    }
-
     // Android target
     androidTarget {
         compilerOptions {
@@ -73,10 +61,6 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.test)
             }
         }
-
-        val jvmMain by getting
-
-        val jvmTest by getting
 
         val androidMain by getting {
             dependencies {

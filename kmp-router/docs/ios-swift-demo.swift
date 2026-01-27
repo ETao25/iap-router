@@ -142,15 +142,11 @@ func showAlert(message: String) {
  在 AppDelegate 中调用：
 
  func application(_ application: UIApplication, didFinishLaunchingWithOptions...) {
-     // 创建 Router 实例（通常作为单例使用）
-     let router = Router()
-
-     // 配置 iOS 平台组件
-     // 注意：setupIOSPlatform() 需要桥接实际的 iOS 导航 SDK
-     router.setupIOSPlatform()
+     // 初始化 Router（使用单例）
+     Router.shared.initialize()
 
      // 注册所有路由
-     RouteConfiguration.registerAllRoutes(registry: router.registry)
+     RouteConfiguration.registerAllRoutes(registry: Router.shared.registry)
 
      // ==================== 配置降级策略（使用 FallbackManager）====================
      // 注意：降级配置是基于 pattern 的，不是单页面维度的
@@ -165,19 +161,7 @@ func showAlert(message: String) {
      fallbackManager.addPatternFallback(pattern: "user/*", action: FallbackAction.NavigateTo(url: "iap://login"))
 
      // 注册到 Router
-     router.fallbackHandler = fallbackManager
-
-     // 存储 router 实例供全局使用
-     AppRouter.shared = router
- }
-*/
-
-// MARK: - 全局 Router 访问（示例）
-
-/*
- // 简单的单例封装
- class AppRouter {
-     static var shared: Router!
+     Router.shared.fallbackHandler = fallbackManager
  }
 */
 
@@ -187,35 +171,35 @@ func showAlert(message: String) {
  跳转示例：
 
  // 简单跳转
- AppRouter.shared.open(url: "iap://order/detail/12345")
+ Router.shared.open(url: "iap://order/detail/12345")
 
  // 带参数跳转
- AppRouter.shared.open(url: "iap://order/detail/12345?source=homepage")
+ Router.shared.open(url: "iap://order/detail/12345?source=homepage")
 
  // 带额外参数（传递对象）
- AppRouter.shared.open(
+ Router.shared.open(
      url: "iap://order/detail/12345",
      params: ["viewModel": orderViewModel]
  )
 
  // FX 图表页
- AppRouter.shared.open(url: "iap://fx/USDCNY/chart?period=1d")
+ Router.shared.open(url: "iap://fx/USDCNY/chart?period=1d")
 
  // Action 调用
- AppRouter.shared.open(url: "iap://action/showPopup?message=Hello")
- AppRouter.shared.open(url: "iap://action/copyText?text=复制内容")
+ Router.shared.open(url: "iap://action/showPopup?message=Hello")
+ Router.shared.open(url: "iap://action/copyText?text=复制内容")
 
  // 检查是否可以打开
- if AppRouter.shared.canOpen(url: "iap://order/detail/123") {
+ if Router.shared.canOpen(url: "iap://order/detail/123") {
      // 路由已注册
  }
 
  // 返回上一页
- AppRouter.shared.pop()
+ Router.shared.pop()
 
  // 返回到指定页面
- AppRouter.shared.popTo(pageId: "order/list")
+ Router.shared.popTo(pageId: "order/list")
 
  // 返回到根页面
- AppRouter.shared.popToRoot()
+ Router.shared.popToRoot()
 */
