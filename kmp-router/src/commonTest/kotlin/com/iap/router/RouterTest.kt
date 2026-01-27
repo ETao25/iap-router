@@ -6,16 +6,17 @@ import com.iap.router.core.RouteTable
 import com.iap.router.fallback.FallbackAction
 import com.iap.router.fallback.FallbackManager
 import com.iap.router.interceptor.InterceptorChain
+import com.iap.router.interceptor.InterceptorManager
 import com.iap.router.interceptor.RouteInterceptor
 import com.iap.router.model.NavMode
 import com.iap.router.model.NavigationOptions
 import com.iap.router.model.PageRouteConfig
 import com.iap.router.model.RouteContext
 import com.iap.router.model.RouteResult
-import com.iap.router.model.RouteSource
-import com.iap.router.observer.RouteCallback
+import com.iap.router.observer.ObserverManager
 import com.iap.router.observer.RouteError
 import com.iap.router.observer.RouteObserver
+import com.iap.router.platform.ActionExecutor
 import com.iap.router.platform.Navigator
 import com.iap.router.platform.PageTarget
 import com.iap.router.platform.PlatformPageCreator
@@ -29,11 +30,32 @@ import kotlin.test.assertTrue
 
 class RouterTest {
 
+    // ==================== 测试辅助方法 ====================
+
+    private fun createTestRouter(navigator: MockNavigator = MockNavigator()): Router {
+        val routeTable = RouteTable()
+        return Router(
+            routeTable = routeTable,
+            interceptorManager = InterceptorManager(),
+            observerManager = ObserverManager(),
+            navigator = navigator,
+            actionExecutor = MockActionExecutor()
+        )
+    }
+
+    private fun createTestPageConfig(pattern: String): PageRouteConfig {
+        return PageRouteConfig(
+            pattern = pattern,
+            target = PageTarget(TestPageCreator()),
+            pageId = pattern
+        )
+    }
+
     // ==================== 基础功能测试 ====================
 
     @Test
     fun `canOpen should return true for registered route`() {
-        val router = Router()
+        val router = createTestRouter()
         router.registry.registerPage(createTestPageConfig("order/detail/:id"))
 
         assertTrue(router.canOpen("iap://order/detail/123"))
@@ -41,14 +63,14 @@ class RouterTest {
 
     @Test
     fun `canOpen should return false for unregistered route`() {
-        val router = Router()
+        val router = createTestRouter()
 
         assertFalse(router.canOpen("iap://unknown/page"))
     }
 
     @Test
     fun `canOpen should return false for invalid URL`() {
-        val router = Router()
+        val router = createTestRouter()
 
         assertFalse(router.canOpen("invalid-url"))
     }
@@ -57,9 +79,8 @@ class RouterTest {
 
     @Test
     fun `openSuspend should return Success for registered page route`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         val result = router.openSuspend("iap://test/page")
@@ -70,9 +91,8 @@ class RouterTest {
 
     @Test
     fun `openSuspend should call navigator push for page route`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("order/detail/:orderId"))
 
         router.openSuspend("iap://order/detail/123?from=list")
@@ -85,9 +105,8 @@ class RouterTest {
 
     @Test
     fun `openSuspend should call navigator present when navMode is PRESENT`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("modal/page"))
 
         val options = NavigationOptions(navMode = NavMode.PRESENT)
@@ -99,7 +118,7 @@ class RouterTest {
 
     @Test
     fun `openSuspend should return NotFound for unregistered route`() = runTest {
-        val router = Router()
+        val router = createTestRouter()
 
         val result = router.openSuspend("iap://unknown/page")
 
@@ -108,21 +127,9 @@ class RouterTest {
     }
 
     @Test
-    fun `openSuspend should return Error when navigator not set`() = runTest {
-        val router = Router()
-        router.registry.registerPage(createTestPageConfig("test/page"))
-        // navigator not set
-
-        val result = router.openSuspend("iap://test/page")
-
-        assertIs<RouteResult.Error>(result)
-    }
-
-    @Test
     fun `openSuspend should merge extra params with URL params`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         router.openSuspend(
@@ -136,9 +143,8 @@ class RouterTest {
 
     @Test
     fun `extra params should override URL params`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         router.openSuspend(
@@ -153,7 +159,7 @@ class RouterTest {
 
     @Test
     fun `openSuspend should execute action for action route`() = runTest {
-        val router = Router()
+        val router = createTestRouter()
         val mockHandler = MockActionHandler()
         router.registry.registerAction("showPopup", mockHandler)
 
@@ -168,9 +174,8 @@ class RouterTest {
 
     @Test
     fun `interceptor should be called during routing`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         var interceptorCalled = false
@@ -188,9 +193,8 @@ class RouterTest {
 
     @Test
     fun `interceptor can block route`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         router.addGlobalInterceptor(object : RouteInterceptor {
@@ -208,9 +212,8 @@ class RouterTest {
 
     @Test
     fun `interceptor can modify params`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         router.addGlobalInterceptor(object : RouteInterceptor {
@@ -227,9 +230,8 @@ class RouterTest {
 
     @Test
     fun `interceptor can redirect`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("original/page"))
         router.registry.registerPage(createTestPageConfig("redirect/page"))
 
@@ -250,9 +252,8 @@ class RouterTest {
 
     @Test
     fun `local interceptor only applies to matching pattern`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("payment/checkout"))
         router.registry.registerPage(createTestPageConfig("order/detail"))
 
@@ -275,9 +276,8 @@ class RouterTest {
 
     @Test
     fun `observer should be notified on route start and complete`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         var startCalled = false
@@ -304,9 +304,7 @@ class RouterTest {
 
     @Test
     fun `fallback should be triggered when route not found`() = runTest {
-        val router = Router()
-        val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter()
 
         // 设置降级管理器
         val fallbackManager = FallbackManager()
@@ -321,9 +319,7 @@ class RouterTest {
 
     @Test
     fun `pattern fallback should match specific routes`() = runTest {
-        val router = Router()
-        val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter()
 
         val fallbackManager = FallbackManager()
         var fallbackUrl: String? = null
@@ -344,9 +340,8 @@ class RouterTest {
 
     @Test
     fun `pop should call navigator pop`() {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
 
         router.pop()
 
@@ -355,9 +350,8 @@ class RouterTest {
 
     @Test
     fun `popTo should call navigator popTo`() {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
 
         router.popTo("target/page")
 
@@ -367,9 +361,8 @@ class RouterTest {
 
     @Test
     fun `popToRoot should call navigator popToRoot`() {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
 
         router.popToRoot()
 
@@ -380,9 +373,8 @@ class RouterTest {
 
     @Test
     fun `callback onSuccess should be called on successful navigation`() = runTest {
-        val router = Router()
         val mockNavigator = MockNavigator()
-        router.navigator = mockNavigator
+        val router = createTestRouter(mockNavigator)
         router.registry.registerPage(createTestPageConfig("test/page"))
 
         var successContext: RouteContext? = null
@@ -404,16 +396,6 @@ class RouterTest {
 
         assertNotNull(successContext)
         assertEquals("iap://test/page", successContext.url)
-    }
-
-    // ==================== 辅助方法和类 ====================
-
-    private fun createTestPageConfig(pattern: String): PageRouteConfig {
-        return PageRouteConfig(
-            pattern = pattern,
-            target = PageTarget(TestPageCreator()),
-            pageId = pattern
-        )
     }
 }
 
@@ -463,12 +445,19 @@ private class MockNavigator : Navigator {
     }
 }
 
+private class MockActionExecutor : ActionExecutor {
+    override fun execute(actionName: String, params: Map<String, Any?>, callback: com.iap.router.core.ActionCallback?) {
+        callback?.onSuccess(null)
+    }
+    override fun canExecute(actionName: String): Boolean = true
+}
+
 private class MockActionHandler : ActionHandler {
     var executed = false
     var lastParams: Map<String, Any?> = emptyMap()
-    var lastCallback: ActionCallback? = null
+    var lastCallback: com.iap.router.core.ActionCallback? = null
 
-    override fun execute(params: Map<String, Any?>, callback: ActionCallback?) {
+    override fun execute(params: Map<String, Any?>, callback: com.iap.router.core.ActionCallback?) {
         executed = true
         lastParams = params
         lastCallback = callback

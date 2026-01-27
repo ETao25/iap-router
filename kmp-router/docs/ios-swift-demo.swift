@@ -142,8 +142,7 @@ func showAlert(message: String) {
  在 AppDelegate 中调用：
 
  func application(_ application: UIApplication, didFinishLaunchingWithOptions...) {
-     // 初始化 Router（使用单例）
-     Router.shared.initialize()
+     // Router.shared 单例自动初始化平台组件，无需手动调用 initialize()
 
      // 注册所有路由
      RouteConfiguration.registerAllRoutes(registry: Router.shared.registry)

@@ -41,35 +41,39 @@ import kotlin.coroutines.CoroutineContext
  * - 降级处理
  * - 观察者通知
  *
- * 使用单例模式，通过 Router.shared 访问
+ * 使用单例模式，通过 Router.shared 访问，自动初始化平台组件
  *
- * 初始化示例（iOS）：
- * ```swift
- * Router.shared.initialize()
- * ```
- *
- * 初始化示例（Android）：
+ * 使用示例（iOS/Android 通用）：
  * ```kotlin
- * Router.shared.initialize()
+ * // 直接使用，无需手动初始化
+ * Router.shared.open("iap://order/detail/123")
  * ```
- *
- * 注意：通常应使用 Router.shared 单例，不建议直接创建新实例
  */
-class Router(
+class Router internal constructor(
     /**
      * 路由表
      */
-    val routeTable: RouteTable = RouteTable(),
+    val routeTable: RouteTable,
 
     /**
      * 拦截器管理器
      */
-    val interceptorManager: InterceptorManager = InterceptorManager(),
+    val interceptorManager: InterceptorManager,
 
     /**
      * 观察者管理器
      */
-    val observerManager: ObserverManager = ObserverManager(),
+    val observerManager: ObserverManager,
+
+    /**
+     * 导航器
+     */
+    val navigator: Navigator,
+
+    /**
+     * Action 执行器
+     */
+    val actionExecutor: ActionExecutor,
 
     /**
      * 协程上下文（用于异步拦截器执行）
@@ -78,30 +82,15 @@ class Router(
 ) {
     companion object {
         /**
-         * 单例实例
+         * 单例实例（自动初始化平台组件）
          */
-        val shared: Router = Router()
+        val shared: Router by lazy { createRouter() }
     }
-
-    /**
-     * 是否已初始化
-     */
-    private var initialized = false
 
     /**
      * 路由注册器
      */
     val registry: RouteRegistry = RouteRegistry(routeTable)
-
-    /**
-     * 导航器（由平台初始化方法设置）
-     */
-    internal var navigator: Navigator? = null
-
-    /**
-     * Action 执行器（由平台初始化方法设置）
-     */
-    internal var actionExecutor: ActionExecutor? = null
 
     /**
      * 降级处理器
@@ -112,18 +101,6 @@ class Router(
      * 协程作用域
      */
     private val scope = CoroutineScope(coroutineContext)
-
-    /**
-     * 检查是否已初始化
-     */
-    fun isInitialized(): Boolean = initialized
-
-    /**
-     * 标记为已初始化（由平台实现调用）
-     */
-    internal fun markInitialized() {
-        initialized = true
-    }
 
     // ==================== 路由打开 API ====================
 
@@ -244,21 +221,21 @@ class Router(
      * 返回上一页
      */
     fun pop(result: Any? = null) {
-        navigator?.pop(result) ?: Logger.warn("Navigator not set, cannot pop")
+        navigator.pop(result)
     }
 
     /**
      * 返回到指定页面
      */
     fun popTo(pageId: String, result: Any? = null) {
-        navigator?.popTo(pageId, result) ?: Logger.warn("Navigator not set, cannot popTo")
+        navigator.popTo(pageId, result)
     }
 
     /**
      * 返回到根页面
      */
     fun popToRoot() {
-        navigator?.popToRoot() ?: Logger.warn("Navigator not set, cannot popToRoot")
+        navigator.popToRoot()
     }
 
     // ==================== 私有方法 ====================
@@ -314,12 +291,6 @@ class Router(
         lookupResult: RouteLookupResult.PageRoute,
         options: NavigationOptions
     ): RouteResult {
-        val nav = navigator
-        if (nav == null) {
-            Logger.error("Navigator not set, cannot navigate to page")
-            return RouteResult.Error(IllegalStateException("Navigator not set"))
-        }
-
         val config = lookupResult.config
         val matchResult = lookupResult.matchResult
 
@@ -336,8 +307,8 @@ class Router(
         // 执行导航
         try {
             when (options.navMode) {
-                NavMode.PUSH -> nav.push(pageId, finalParams, options)
-                NavMode.PRESENT -> nav.present(pageId, finalParams, options)
+                NavMode.PUSH -> navigator.push(pageId, finalParams, options)
+                NavMode.PRESENT -> navigator.present(pageId, finalParams, options)
             }
             return RouteResult.Success(finalContext)
         } catch (e: Exception) {
@@ -472,3 +443,8 @@ class Router(
  * 获取当前时间戳（跨平台）
  */
 internal expect fun currentTimeMillis(): Long
+
+/**
+ * 创建平台特定的 Router 实例
+ */
+internal expect fun createRouter(): Router
